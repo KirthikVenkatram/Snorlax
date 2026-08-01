@@ -110,6 +110,24 @@ no social features).
   manually?" which drops the user into the recipe/custom-food builder.
 - Firebase Auth/network failures show a retry affordance rather than crashing.
 
+## UI / Design Direction
+
+Target feel: modern, sleek, industry-standard, futuristic — a hybrid of two references:
+
+- **Everyday screens (dashboard, logs, history, profile)**: dark, near-black base
+  (Whoop/Oura-style) with glowing neon accent colors (electric blue/violet/green),
+  glassmorphic cards, circular progress rings, big bold numbers for key stats,
+  restrained/data-forward layout.
+- **High-emotion moments (workout completed, streak milestone, macro goal hit)**:
+  vibrant animated gradients and bold, energetic motion (Nike Training/Strava-style)
+  as a celebratory layer on top of the dark base — not the default resting state.
+- Micro-interactions throughout (button presses, progress ring fills, checklist ticks)
+  should feel tactile/haptic, not static.
+- Typography: bold, confident numerals for stats; clean sans-serif for body text.
+- Establish this as a proper design system (color tokens, spacing scale, component
+  library) up front so it stays consistent as features are added, rather than
+  styling each screen ad hoc.
+
 ## Testing
 
 - Widget tests for core screens: dashboard, log-workout form, log-food form.
