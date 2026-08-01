@@ -1,2 +1,5 @@
-# Snorlax
-Meet Snorlax, the sleepiest yet smartest productivity companion in the Pokémon world! Just like how Snorlax knows when to rest and when to be active, this AI-powered organizer helps you balance work and life by understanding your natural rhythms.
+# Fitness Tracker
+
+A Flutter + Firebase fitness app for tracking workouts, nutrition, and discipline/habits.
+
+See `docs/superpowers/specs/` and `docs/superpowers/plans/` for the design spec and implementation plans.
