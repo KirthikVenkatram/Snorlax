@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "726263813003",
+    "project_id": "snorlax-d2f99",
+    "storage_bucket": "snorlax-d2f99.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:726263813003:android:b25000ac7154bf9065d58e",
+        "android_client_info": {
+          "package_name": "com.snorlax.fitness.fitness_tracker"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "726263813003-eg0kmf4dsb44r5tnqt36svhgsja3p2qo.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBVcJmTindj7BfA-6HjXS_UsEE3wLWolac"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "726263813003-eg0kmf4dsb44r5tnqt36svhgsja3p2qo.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "726263813003-rbclnknf08qc7j9er7i00ev2sgq8f3dv.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.snorlax.fitness.fitnessTracker"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
