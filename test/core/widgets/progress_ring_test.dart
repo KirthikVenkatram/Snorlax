@@ -18,8 +18,17 @@ void main() {
     expect(find.text('50%'), findsOneWidget);
   });
 
-  test('ProgressRing clamps progress to 0.0-1.0', () {
-    const ring = ProgressRing(progress: 1.5, color: AppColors.accentGreen);
-    expect(ring.progress.clamp(0.0, 1.0), 1.0);
+  testWidgets('ProgressRing clamps out-of-range progress before rendering', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: ProgressRing(progress: 1.5, color: AppColors.accentGreen),
+      ),
+    );
+
+    final indicator = tester.widget<CircularProgressIndicator>(
+      find.byType(CircularProgressIndicator),
+    );
+
+    expect(indicator.value, 1.0);
   });
 }
