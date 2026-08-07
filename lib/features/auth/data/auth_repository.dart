@@ -16,7 +16,11 @@ class AuthRepository {
 
   final fb_auth.FirebaseAuth _firebaseAuth;
   final GoogleSignIn _googleSignIn;
-  bool _googleSignInInitialized = false;
+  Future<void>? _googleSignInInitialization;
+
+  Future<void> _ensureGoogleSignInInitialized() {
+    return _googleSignInInitialization ??= _googleSignIn.initialize();
+  }
 
   Stream<AppUser?> authStateChanges() {
     return _firebaseAuth.authStateChanges().map(
@@ -25,10 +29,7 @@ class AuthRepository {
   }
 
   Future<AppUser?> signInWithGoogle() async {
-    if (!_googleSignInInitialized) {
-      await _googleSignIn.initialize();
-      _googleSignInInitialized = true;
-    }
+    await _ensureGoogleSignInInitialized();
 
     try {
       final googleAccount = await _googleSignIn.authenticate();
@@ -67,7 +68,7 @@ class AuthRepository {
   }
 
   Future<void> signOut() async {
-    if (_googleSignInInitialized) {
+    if (_googleSignInInitialization != null) {
       await _googleSignIn.signOut();
     }
     await _firebaseAuth.signOut();
