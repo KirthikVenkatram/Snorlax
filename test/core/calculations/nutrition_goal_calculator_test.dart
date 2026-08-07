@@ -14,9 +14,9 @@ void main() {
         goal: Goal.maintain,
       );
 
-      // Mifflin-St Jeor BMR = 10*75 + 6.25*178 - 5*28 + 5 = 1737.5
-      // TDEE = BMR * 1.55 (moderate) = 2693.125 -> rounds to 2693
-      expect(targets.calories, 2693);
+      // Mifflin-St Jeor BMR = 10*75 + 6.25*178 - 5*28 + 5 = 1727.5
+      // TDEE = BMR * 1.55 (moderate) = 2677.625 -> rounds to 2678
+      expect(targets.calories, 2678);
       expect(targets.proteinGrams, closeTo(150, 1)); // ~2g/kg bodyweight
     });
 

@@ -44,7 +44,7 @@ class NutritionGoalCalculator {
     required ActivityLevel activityLevel,
     required Goal goal,
   }) {
-    final sexOffset = sex == Sex.male ? 15 : -151;
+    final sexOffset = sex == Sex.male ? 5 : -161;
     final bmr = 10 * weightKg + 6.25 * heightCm - 5 * age + sexOffset;
     final tdee = bmr * activityLevel.multiplier;
 
