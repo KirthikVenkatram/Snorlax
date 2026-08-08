@@ -1,19 +1,54 @@
 // lib/core/router/app_router.dart
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../features/auth/domain/app_user.dart';
 import '../../features/auth/presentation/auth_providers.dart';
 import '../../features/auth/presentation/onboarding_screen.dart';
 import '../../features/auth/presentation/sign_in_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
 
+/// Turns a [Stream] into a [Listenable] so `go_router`'s `redirect`
+/// callback re-runs whenever the stream emits, not just on navigation.
+///
+/// go_router shipped a built-in `GoRouterRefreshStream` for this purpose in
+/// early versions, but it was removed in a later breaking change and never
+/// reintroduced, so this project provides its own minimal equivalent.
+class GoRouterRefreshStream extends ChangeNotifier {
+  GoRouterRefreshStream(Stream<dynamic> stream) {
+    notifyListeners();
+    _subscription = stream.asBroadcastStream().listen((_) => notifyListeners());
+  }
+
+  late final StreamSubscription<dynamic> _subscription;
+
+  @override
+  void dispose() {
+    _subscription.cancel();
+    super.dispose();
+  }
+}
+
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authRepository = ref.watch(authRepositoryProvider);
   final profileRepository = ref.watch(userProfileRepositoryProvider);
 
+  final refreshListenable = GoRouterRefreshStream(authRepository.authStateChanges());
+  ref.onDispose(refreshListenable.dispose);
+
   return GoRouter(
     initialLocation: '/sign-in',
+    refreshListenable: refreshListenable,
     redirect: (context, state) async {
-      final user = await authRepository.authStateChanges().first;
+      // Prefer the cached authStateProvider value so most redirects don't
+      // re-subscribe to the auth stream. Only fall back to a fresh read
+      // when the provider hasn't resolved its first value yet.
+      final cachedAuthState = ref.read(authStateProvider);
+      final user = cachedAuthState is AsyncData<AppUser?>
+          ? cachedAuthState.value
+          : await authRepository.authStateChanges().first;
       final signingIn = state.matchedLocation == '/sign-in';
 
       if (user == null) return signingIn ? null : '/sign-in';

@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/calculations/nutrition_goal_calculator.dart';
 import '../../../core/widgets/glass_card.dart';
-import '../../../core/widgets/gradient_button.dart';
+import '../../../core/widgets/primary_button.dart';
 import '../data/user_profile_repository.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -125,7 +125,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   const SizedBox(height: 24),
                   _saving
                       ? const Center(child: CircularProgressIndicator())
-                      : GradientButton(label: 'Continue', onPressed: _submit),
+                      : PrimaryButton(label: 'Continue', onPressed: _submit),
                 ],
               ),
             ),
