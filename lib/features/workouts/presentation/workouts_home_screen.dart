@@ -6,6 +6,7 @@ import '../data/workout_repository.dart';
 import '../domain/workout.dart';
 import 'log_general_screen.dart';
 import 'log_strength_screen.dart';
+import 'workout_detail_screen.dart';
 
 class WorkoutsHomeScreen extends StatefulWidget {
   const WorkoutsHomeScreen({
@@ -111,10 +112,25 @@ class _WorkoutsHomeScreenState extends State<WorkoutsHomeScreen> {
                       itemBuilder: (context, index) {
                         final workout = workouts[index];
                         return GlassCard(
-                          child: ListTile(
-                            title: Text(_titleFor(workout)),
-                            subtitle: Text(
-                              '${workout.date.year}-${workout.date.month.toString().padLeft(2, '0')}-${workout.date.day.toString().padLeft(2, '0')} · ${workout.durationMinutes} min',
+                          child: Material(
+                            color: Colors.transparent,
+                            child: ListTile(
+                              title: Text(_titleFor(workout)),
+                              subtitle: Text(
+                                '${workout.date.year}-${workout.date.month.toString().padLeft(2, '0')}-${workout.date.day.toString().padLeft(2, '0')} · ${workout.durationMinutes} min',
+                              ),
+                              onTap: () async {
+                                await Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => WorkoutDetailScreen(
+                                      uid: widget.uid,
+                                      workout: workout,
+                                      workoutRepository: widget.workoutRepository,
+                                      onChanged: _refresh,
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
                           ),
                         );
