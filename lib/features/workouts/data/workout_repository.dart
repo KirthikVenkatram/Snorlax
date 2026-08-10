@@ -72,6 +72,16 @@ class WorkoutRepository {
     });
   }
 
+  Future<void> updateStrengthWorkout({
+    required String uid,
+    required String workoutId,
+    required int durationMinutes,
+  }) async {
+    await _workouts(uid).doc(workoutId).update({
+      'durationMinutes': durationMinutes,
+    });
+  }
+
   Future<void> deleteWorkout(String uid, String workoutId) async {
     await _workouts(uid).doc(workoutId).delete();
   }

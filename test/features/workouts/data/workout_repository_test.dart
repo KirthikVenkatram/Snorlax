@@ -82,6 +82,30 @@ void main() {
       expect(workout.notes, 'updated');
     });
 
+    test('updateStrengthWorkout modifies duration of an existing strength workout', () async {
+      final firestore = FakeFirebaseFirestore();
+      final repository = WorkoutRepository(firestore: firestore);
+
+      final id = await repository.createStrengthWorkout(
+        uid: 'uid-1',
+        date: DateTime(2026, 8, 1),
+        durationMinutes: 45,
+        exercises: [
+          ExerciseEntry(exerciseName: 'Bench Press', sets: [
+            SetEntry(reps: 5, weightKg: 80),
+          ]),
+        ],
+      );
+
+      await repository.updateStrengthWorkout(
+        uid: 'uid-1', workoutId: id, durationMinutes: 60);
+
+      final workout = await repository.getWorkout('uid-1', id);
+      expect(workout!.durationMinutes, 60);
+      expect(workout.exercises, hasLength(1));
+      expect(workout.exercises!.first.exerciseName, 'Bench Press');
+    });
+
     test('deleteWorkout removes the workout document', () async {
       final firestore = FakeFirebaseFirestore();
       final repository = WorkoutRepository(firestore: firestore);

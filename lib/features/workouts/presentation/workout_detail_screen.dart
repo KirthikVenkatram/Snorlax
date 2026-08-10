@@ -3,6 +3,7 @@ import '../../../core/widgets/glass_card.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../data/workout_repository.dart';
 import '../domain/workout.dart';
+import 'exercise_progress_screen.dart';
 
 class WorkoutDetailScreen extends StatefulWidget {
   const WorkoutDetailScreen({
@@ -30,12 +31,19 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
   bool get _isEditable => widget.workout.source == WorkoutSource.manual;
 
   Future<void> _save() async {
+    final durationMinutes = int.parse(_durationController.text);
     if (widget.workout.type == WorkoutType.general) {
       await widget.workoutRepository.updateGeneralWorkout(
         uid: widget.uid,
         workoutId: widget.workout.id,
-        durationMinutes: int.parse(_durationController.text),
+        durationMinutes: durationMinutes,
         notes: _notesController.text,
+      );
+    } else if (widget.workout.type == WorkoutType.strength) {
+      await widget.workoutRepository.updateStrengthWorkout(
+        uid: widget.uid,
+        workoutId: widget.workout.id,
+        durationMinutes: durationMinutes,
       );
     }
     if (!mounted) return;
@@ -90,8 +98,21 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                   for (final exercise in workout.exercises ?? [])
                     Padding(
                       padding: const EdgeInsets.only(top: 12),
-                      child: Text(
-                        '${exercise.exerciseName}: ${exercise.sets.map((s) => '${s.reps}x${s.weightKg}kg').join(', ')}',
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => ExerciseProgressScreen(
+                                uid: widget.uid,
+                                exerciseName: exercise.exerciseName,
+                                workoutRepository: widget.workoutRepository,
+                              ),
+                            ),
+                          );
+                        },
+                        child: Text(
+                          '${exercise.exerciseName}: ${exercise.sets.map((s) => '${s.reps}x${s.weightKg}kg').join(', ')}',
+                        ),
                       ),
                     ),
                 if (workout.type == WorkoutType.cardio) ...[
