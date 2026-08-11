@@ -1,6 +1,7 @@
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fitness_tracker/features/strava/data/strava_connection_repository.dart';
 import 'package:fitness_tracker/features/workouts/data/exercise_library_repository.dart';
 import 'package:fitness_tracker/features/workouts/data/workout_repository.dart';
 import 'package:fitness_tracker/features/workouts/presentation/workouts_home_screen.dart';
@@ -10,6 +11,7 @@ void main() {
     final firestore = FakeFirebaseFirestore();
     final workoutRepository = WorkoutRepository(firestore: firestore);
     final exerciseRepository = ExerciseLibraryRepository(firestore: firestore);
+    final stravaRepository = StravaConnectionRepository(firestore: firestore);
 
     await workoutRepository.createGeneralWorkout(
       uid: 'uid-1',
@@ -24,6 +26,7 @@ void main() {
           uid: 'uid-1',
           workoutRepository: workoutRepository,
           exerciseRepository: exerciseRepository,
+          stravaRepository: stravaRepository,
         ),
       ),
     );
@@ -36,6 +39,7 @@ void main() {
     final firestore = FakeFirebaseFirestore();
     final workoutRepository = WorkoutRepository(firestore: firestore);
     final exerciseRepository = ExerciseLibraryRepository(firestore: firestore);
+    final stravaRepository = StravaConnectionRepository(firestore: firestore);
 
     await tester.pumpWidget(
       MaterialApp(
@@ -43,6 +47,7 @@ void main() {
           uid: 'uid-1',
           workoutRepository: workoutRepository,
           exerciseRepository: exerciseRepository,
+          stravaRepository: stravaRepository,
         ),
       ),
     );

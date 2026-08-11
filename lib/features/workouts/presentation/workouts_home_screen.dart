@@ -1,6 +1,8 @@
 // lib/features/workouts/presentation/workouts_home_screen.dart
 import 'package:flutter/material.dart';
 import '../../../core/widgets/glass_card.dart';
+import '../../strava/data/strava_connection_repository.dart';
+import '../../strava/presentation/strava_connect_banner.dart';
 import '../data/exercise_library_repository.dart';
 import '../data/workout_repository.dart';
 import '../domain/workout.dart';
@@ -14,11 +16,13 @@ class WorkoutsHomeScreen extends StatefulWidget {
     required this.uid,
     required this.workoutRepository,
     required this.exerciseRepository,
+    required this.stravaRepository,
   });
 
   final String uid;
   final WorkoutRepository workoutRepository;
   final ExerciseLibraryRepository exerciseRepository;
+  final StravaConnectionRepository stravaRepository;
 
   @override
   State<WorkoutsHomeScreen> createState() => _WorkoutsHomeScreenState();
@@ -92,8 +96,7 @@ class _WorkoutsHomeScreenState extends State<WorkoutsHomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Strava "Connect Strava" banner is inserted here by Task 11.
-              const SizedBox.shrink(),
+              StravaConnectBanner(uid: widget.uid, repository: widget.stravaRepository),
               const SizedBox(height: 16),
               Expanded(
                 child: FutureBuilder<List<Workout>>(
