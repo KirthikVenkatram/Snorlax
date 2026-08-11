@@ -45,3 +45,23 @@ export async function refreshAccessToken(refreshToken: string): Promise<StravaTo
 
   return (await response.json()) as StravaTokenResponse;
 }
+
+export interface StravaActivity {
+  id: number;
+  type: string;
+  distance: number; // meters
+  moving_time: number; // seconds
+  start_date: string; // ISO 8601
+}
+
+export async function getActivity(accessToken: string, activityId: number): Promise<StravaActivity> {
+  const response = await fetch(`https://www.strava.com/api/v3/activities/${activityId}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Strava getActivity failed: ${response.status}`);
+  }
+
+  return (await response.json()) as StravaActivity;
+}

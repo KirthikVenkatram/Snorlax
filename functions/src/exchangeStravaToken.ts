@@ -23,16 +23,19 @@ export async function exchangeCodeHandler(uid: string, code: string) {
   return { connected: true };
 }
 
-export const exchangeStravaToken = onCall(async (request) => {
-  const uid = request.auth?.uid;
-  if (!uid) {
-    throw new HttpsError('unauthenticated', 'Must be signed in.');
-  }
+export const exchangeStravaToken = onCall(
+  { secrets: ['STRAVA_CLIENT_ID', 'STRAVA_CLIENT_SECRET'] },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) {
+      throw new HttpsError('unauthenticated', 'Must be signed in.');
+    }
 
-  const code = request.data?.code as string | undefined;
-  if (!code) {
-    throw new HttpsError('invalid-argument', 'Missing authorization code.');
-  }
+    const code = request.data?.code as string | undefined;
+    if (!code) {
+      throw new HttpsError('invalid-argument', 'Missing authorization code.');
+    }
 
-  return exchangeCodeHandler(uid, code);
-});
+    return exchangeCodeHandler(uid, code);
+  },
+);

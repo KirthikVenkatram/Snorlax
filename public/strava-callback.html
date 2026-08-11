@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Connecting to Strava…</title></head>
+<body>
+  <script>
+    // Forward the full query string (contains ?code=... or ?error=...)
+    // into the app's custom URL scheme deep link.
+    window.location.replace('fitnesstracker://strava-callback' + window.location.search);
+  </script>
+  <p>Redirecting back to the app…</p>
+</body>
+</html>
