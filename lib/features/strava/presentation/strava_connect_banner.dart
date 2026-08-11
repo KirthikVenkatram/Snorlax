@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/glass_card.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../data/strava_connection_repository.dart';
@@ -81,7 +82,7 @@ class _StravaConnectBannerState extends State<StravaConnectBanner> {
                 PrimaryButton(label: 'Connect', onPressed: _connect),
               if (_error != null) ...[
                 const SizedBox(width: 8),
-                Text(_error!, style: const TextStyle(color: Colors.redAccent)),
+                Text(_error!, style: const TextStyle(color: AppColors.error)),
               ],
             ],
           ),

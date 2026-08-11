@@ -11,6 +11,7 @@ class AppColors {
   static const accentBlue = Color(0xFF3D5AFE);
   static const accentViolet = Color(0xFF9C4DFF);
   static const accentGreen = Color(0xFF00E5A0);
+  static const error = Color(0xFFFF5C7A);
 
   static const textPrimary = Color(0xFFF5F5FA);
   static const textSecondary = Color(0xFFA0A0B2);
