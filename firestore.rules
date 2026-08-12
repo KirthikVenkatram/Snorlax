@@ -2,12 +2,41 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
     // Single-user app: every document under users/{uid} — at any depth,
     // including all subcollections (workouts, foodLogs, recipes, habits,
     // dailyChecklist, disciplineScores, etc.) — is only readable/writable
     // by the authenticated owner of that uid. No cross-user access.
-    match /users/{uid}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+    //
+    // The one exception is users/{uid}/meta/stravaConnection: see below.
+    // Rules are OR'd across matching `match` blocks, so a broad wildcard
+    // covering that document would re-grant what the specific rule denies —
+    // hence the `collection != 'meta'` carve-out here rather than a blanket
+    // `/users/{uid}/{document=**}` rule.
+    match /users/{uid} {
+      allow read, write: if isOwner(uid);
+
+      // Server-owned document. Its `athleteId` is what the Strava webhook
+      // trusts to route incoming activities to a user, so a client that could
+      // write it could redirect (or deny) another athlete's data. Only the
+      // Cloud Function — which uses the Admin SDK and bypasses these rules —
+      // writes it. The client may read it (connection status) and delete it
+      // (disconnect).
+      match /meta/stravaConnection {
+        allow read, delete: if isOwner(uid);
+        allow write: if false;
+      }
+
+      match /meta/{metaDoc} {
+        allow read, write: if isOwner(uid) && metaDoc != 'stravaConnection';
+      }
+
+      match /{collection}/{document=**} {
+        allow read, write: if isOwner(uid) && collection != 'meta';
+      }
     }
   }
 }

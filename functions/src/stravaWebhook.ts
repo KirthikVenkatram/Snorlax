@@ -6,6 +6,7 @@ const STRAVA_VERIFY_TOKEN = process.env.STRAVA_WEBHOOK_VERIFY_TOKEN ?? '';
 
 interface StravaWebhookEvent {
   object_type: string;
+  aspect_type: string; // 'create' | 'update' | 'delete'
   owner_id: number;
   object_id: number;
 }
@@ -19,6 +20,10 @@ interface StravaWebhookEvent {
  */
 export async function handleActivityEvent(event: StravaWebhookEvent): Promise<void> {
   if (event.object_type !== 'activity') return;
+  // Only new activities are ingested. Edits and deletions made in Strava are
+  // not mirrored in this phase; without this check they would each create an
+  // extra workout document.
+  if (event.aspect_type !== 'create') return;
 
   const firestore = admin.firestore();
 
@@ -30,26 +35,52 @@ export async function handleActivityEvent(event: StravaWebhookEvent): Promise<vo
 
   if (matches.empty) return;
 
-  const userDocRef = matches.docs[0].ref.parent.parent!;
-  const connectionSnapshot = await userDocRef.collection('meta').doc('stravaConnection').get();
-  const refreshToken = connectionSnapshot.data()?.refreshToken as string;
+  const matchedMetaDoc = matches.docs[0];
+  const userDocRef = matchedMetaDoc.ref.parent.parent!;
+  // The matched document *is* users/{uid}/meta/stravaConnection, so its data
+  // is already in hand — no second read required.
+  const refreshToken = matchedMetaDoc.data()?.refreshToken as string | undefined;
+  if (!refreshToken) {
+    console.error('stravaWebhook: matched Strava connection has no refreshToken', {
+      athleteId: event.owner_id,
+    });
+    return;
+  }
 
-  const { access_token: accessToken } = await stravaClient.refreshAccessToken(refreshToken);
+  const { access_token: accessToken, refresh_token: rotatedRefreshToken } =
+    await stravaClient.refreshAccessToken(refreshToken);
+
+  // Strava rotates refresh tokens: persist the new one or every subsequent
+  // refresh with the stale token fails.
+  if (rotatedRefreshToken && rotatedRefreshToken !== refreshToken) {
+    await matchedMetaDoc.ref.set({ refreshToken: rotatedRefreshToken }, { merge: true });
+  }
+
   const activity = await stravaClient.getActivity(accessToken, event.object_id);
 
   const distanceKm = activity.distance / 1000;
   const durationMinutes = Math.round(activity.moving_time / 60);
   const paceMinPerKm = distanceKm > 0 ? durationMinutes / distanceKm : 0;
 
-  await userDocRef.collection('workouts').doc().set({
-    type: 'cardio',
-    source: 'strava',
-    date: admin.firestore.Timestamp.fromDate(new Date(activity.start_date)),
-    durationMinutes,
-    distanceKm,
-    paceMinPerKm,
-    stravaActivityId: String(activity.id),
-  });
+  // Intentional simplification for this phase: every Strava-sourced activity is
+  // stored as `cardio`, regardless of `activity.type` (e.g. "WeightTraining").
+  // Deterministic doc id + merge makes Strava redelivery an idempotent no-op
+  // rather than a duplicate workout.
+  await userDocRef
+    .collection('workouts')
+    .doc(`strava_${activity.id}`)
+    .set(
+      {
+        type: 'cardio',
+        source: 'strava',
+        date: admin.firestore.Timestamp.fromDate(new Date(activity.start_date)),
+        durationMinutes,
+        distanceKm,
+        paceMinPerKm,
+        stravaActivityId: String(activity.id),
+      },
+      { merge: true },
+    );
 }
 
 export const stravaWebhook = onRequest({ secrets: ['STRAVA_WEBHOOK_VERIFY_TOKEN'] }, (req, res) => {
