@@ -22,7 +22,6 @@ class LogGeneralScreen extends StatefulWidget {
 class _LogGeneralScreenState extends State<LogGeneralScreen> {
   final _durationController = TextEditingController(text: '30');
   final _notesController = TextEditingController();
-  bool _saving = false;
   String? _durationError;
 
   @override
@@ -39,33 +38,26 @@ class _LogGeneralScreenState extends State<LogGeneralScreen> {
       return;
     }
 
-    setState(() {
-      _durationError = null;
-      _saving = true;
-    });
+    setState(() => _durationError = null);
 
     final messenger = ScaffoldMessenger.of(context);
 
-    try {
-      // Deliberately not awaited — see the note in LogStrengthScreen._save:
-      // Firestore's write Future doesn't complete until the server acks, so
-      // awaiting it strands offline users on a spinner.
-      widget.workoutRepository
-          .createGeneralWorkout(
-            uid: widget.uid,
-            date: DateTime.now(),
-            durationMinutes: durationMinutes,
-            notes: _notesController.text,
-          )
-          .then<void>((_) {}, onError: (Object error) {
-        debugPrint('Failed to save general workout: $error');
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Could not save workout. Please try again.')),
-        );
-      });
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
+    // Deliberately not awaited — see the note in LogStrengthScreen._save:
+    // Firestore's write Future doesn't complete until the server acks, so
+    // awaiting it strands offline users on a spinner.
+    widget.workoutRepository
+        .createGeneralWorkout(
+          uid: widget.uid,
+          date: DateTime.now(),
+          durationMinutes: durationMinutes,
+          notes: _notesController.text,
+        )
+        .then<void>((_) {}, onError: (Object error) {
+      debugPrint('Failed to save general workout: $error');
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Could not save workout. Please try again.')),
+      );
+    });
 
     widget.onSaved();
   }
@@ -96,9 +88,7 @@ class _LogGeneralScreenState extends State<LogGeneralScreen> {
                   decoration: const InputDecoration(labelText: 'Notes'),
                 ),
                 const SizedBox(height: 24),
-                _saving
-                    ? const Center(child: CircularProgressIndicator())
-                    : PrimaryButton(label: 'Save workout', onPressed: _save),
+                PrimaryButton(label: 'Save workout', onPressed: _save),
               ],
             ),
           ),

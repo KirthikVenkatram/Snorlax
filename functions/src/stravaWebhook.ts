@@ -2,8 +2,6 @@ import * as admin from 'firebase-admin';
 import { onRequest } from 'firebase-functions/v2/https';
 import * as stravaClient from './stravaClient';
 
-const STRAVA_VERIFY_TOKEN = process.env.STRAVA_WEBHOOK_VERIFY_TOKEN ?? '';
-
 interface StravaWebhookEvent {
   object_type: string;
   aspect_type: string; // 'create' | 'update' | 'delete'
@@ -86,11 +84,14 @@ export async function handleActivityEvent(event: StravaWebhookEvent): Promise<vo
 export const stravaWebhook = onRequest({ secrets: ['STRAVA_WEBHOOK_VERIFY_TOKEN'] }, (req, res) => {
   if (req.method === 'GET') {
     // Strava's one-time webhook subscription validation handshake.
+    // Read at call time (not module load) so emulator/test setups that
+    // populate the environment after import still see the configured token.
+    const verifyToken = process.env.STRAVA_WEBHOOK_VERIFY_TOKEN ?? '';
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
     const challenge = req.query['hub.challenge'];
 
-    if (mode === 'subscribe' && token === STRAVA_VERIFY_TOKEN) {
+    if (mode === 'subscribe' && token === verifyToken) {
       res.status(200).json({ 'hub.challenge': challenge });
       return;
     }

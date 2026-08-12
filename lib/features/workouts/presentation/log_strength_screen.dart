@@ -28,7 +28,6 @@ class LogStrengthScreen extends StatefulWidget {
 class _LogStrengthScreenState extends State<LogStrengthScreen> {
   final _durationController = TextEditingController(text: '45');
   final List<_ExerciseDraft> _exercises = [];
-  bool _saving = false;
   String? _durationError;
 
   @override
@@ -64,45 +63,38 @@ class _LogStrengthScreenState extends State<LogStrengthScreen> {
       return;
     }
 
-    setState(() {
-      _durationError = null;
-      _saving = true;
-    });
+    setState(() => _durationError = null);
 
     final messenger = ScaffoldMessenger.of(context);
 
-    try {
-      final exercises = [
-        for (final draft in _exercises)
-          ExerciseEntry(
-            exerciseName: draft.exerciseName,
-            sets: draft.sets
-                .map((s) => SetEntry(reps: s.reps, weightKg: s.weightKg))
-                .toList(),
-          ),
-      ];
+    final exercises = [
+      for (final draft in _exercises)
+        ExerciseEntry(
+          exerciseName: draft.exerciseName,
+          sets: draft.sets
+              .map((s) => SetEntry(reps: s.reps, weightKg: s.weightKg))
+              .toList(),
+        ),
+    ];
 
-      // Deliberately not awaited: Firestore applies the write to its local
-      // cache immediately, but the returned Future only completes once the
-      // server acknowledges it — which never happens while offline. Blocking
-      // the UI on it would leave the user on a permanent spinner even though
-      // the data is safely queued. Failures are reported asynchronously.
-      widget.workoutRepository
-          .createStrengthWorkout(
-            uid: widget.uid,
-            date: DateTime.now(),
-            durationMinutes: durationMinutes,
-            exercises: exercises,
-          )
-          .then<void>((_) {}, onError: (Object error) {
-        debugPrint('Failed to save strength workout: $error');
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Could not save workout. Please try again.')),
-        );
-      });
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
+    // Deliberately not awaited: Firestore applies the write to its local
+    // cache immediately, but the returned Future only completes once the
+    // server acknowledges it — which never happens while offline. Blocking
+    // the UI on it would leave the user on a permanent spinner even though
+    // the data is safely queued. Failures are reported asynchronously.
+    widget.workoutRepository
+        .createStrengthWorkout(
+          uid: widget.uid,
+          date: DateTime.now(),
+          durationMinutes: durationMinutes,
+          exercises: exercises,
+        )
+        .then<void>((_) {}, onError: (Object error) {
+      debugPrint('Failed to save strength workout: $error');
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Could not save workout. Please try again.')),
+      );
+    });
 
     widget.onSaved();
   }
@@ -137,12 +129,10 @@ class _LogStrengthScreenState extends State<LogStrengthScreen> {
               child: const Text('Add exercise'),
             ),
             const SizedBox(height: 24),
-            _saving
-                ? const Center(child: CircularProgressIndicator())
-                : PrimaryButton(
-                    label: 'Save workout',
-                    onPressed: _exercises.isEmpty ? null : _save,
-                  ),
+            PrimaryButton(
+              label: 'Save workout',
+              onPressed: _exercises.isEmpty ? null : _save,
+            ),
           ],
         ),
       ),

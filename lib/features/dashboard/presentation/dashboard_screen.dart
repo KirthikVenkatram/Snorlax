@@ -12,7 +12,7 @@ class DashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -44,7 +44,7 @@ class DashboardScreen extends StatelessWidget {
                     const SizedBox(height: 16),
                     PrimaryButton(
                       label: 'Open workouts',
-                      onPressed: () => GoRouter.of(context).go('/workouts'),
+                      onPressed: () => GoRouter.of(context).push('/workouts'),
                     ),
                   ],
                 ),
