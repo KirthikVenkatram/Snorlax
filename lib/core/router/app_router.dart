@@ -1,4 +1,3 @@
-// lib/core/router/app_router.dart
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -9,6 +8,9 @@ import '../../features/auth/presentation/auth_providers.dart';
 import '../../features/auth/presentation/onboarding_screen.dart';
 import '../../features/auth/presentation/sign_in_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
+import '../../features/strava/presentation/strava_providers.dart';
+import '../../features/workouts/presentation/workout_providers.dart';
+import '../../features/workouts/presentation/workouts_home_screen.dart';
 
 /// Turns a [Stream] into a [Listenable] so `go_router`'s `redirect`
 /// callback re-runs whenever the stream emits, not just on navigation.
@@ -77,6 +79,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(path: '/dashboard', builder: (context, state) => const DashboardScreen()),
+      GoRoute(
+        path: '/workouts',
+        builder: (context, state) {
+          // Same pattern as /onboarding: the signed-in uid comes from the
+          // captured `ref`, since the redirect above guarantees a user here.
+          final uid = ref.read(firebaseAuthProvider).currentUser!.uid;
+          return WorkoutsHomeScreen(
+            uid: uid,
+            workoutRepository: ref.read(workoutRepositoryProvider),
+            exerciseRepository: ref.read(exerciseLibraryRepositoryProvider),
+            stravaRepository: ref.read(stravaConnectionRepositoryProvider),
+          );
+        },
+      ),
     ],
   );
 });
