@@ -29,8 +29,50 @@ class ProgressChart extends StatelessWidget {
 
     return LineChart(
       LineChartData(
-        gridData: const FlGridData(show: false),
-        titlesData: const FlTitlesData(show: false),
+        gridData: const FlGridData(show: true, drawVerticalLine: false),
+        titlesData: FlTitlesData(
+          // Left axis carries the metric (e.g. kg); the bottom axis labels the
+          // first, middle, and last session dates. Top/right stay off.
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 44,
+              getTitlesWidget: (value, meta) => Text(
+                value.toStringAsFixed(value == value.roundToDouble() ? 0 : 1),
+                style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+              ),
+            ),
+          ),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 28,
+              getTitlesWidget: (value, meta) {
+                final index = value.round();
+                if (index < 0 || index >= points.length) {
+                  return const SizedBox.shrink();
+                }
+                final isEdgeOrMiddle = index == 0 ||
+                    index == points.length - 1 ||
+                    index == points.length ~/ 2;
+                if (!isEdgeOrMiddle) return const SizedBox.shrink();
+                final date = points[index].date;
+                return Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    '${date.day}/${date.month}',
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 11,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          topTitles: const AxisTitles(),
+          rightTitles: const AxisTitles(),
+        ),
         borderData: FlBorderData(show: false),
         lineBarsData: [
           LineChartBarData(

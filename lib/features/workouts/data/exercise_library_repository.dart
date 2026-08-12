@@ -1,4 +1,3 @@
-// lib/features/workouts/data/exercise_library_repository.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../domain/exercise.dart';
 

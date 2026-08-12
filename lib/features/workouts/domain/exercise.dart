@@ -1,4 +1,3 @@
-// lib/features/workouts/domain/exercise.dart
 class Exercise {
   const Exercise({required this.id, required this.name, required this.isCustom});
 

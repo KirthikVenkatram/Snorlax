@@ -1,4 +1,3 @@
-// lib/features/auth/presentation/sign_in_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/widgets/primary_button.dart';

@@ -1,4 +1,3 @@
-// lib/features/auth/data/user_profile_repository.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/calculations/nutrition_goal_calculator.dart';
 

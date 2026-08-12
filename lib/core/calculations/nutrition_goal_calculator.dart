@@ -1,4 +1,3 @@
-// lib/core/calculations/nutrition_goal_calculator.dart
 
 enum Sex { male, female }
 

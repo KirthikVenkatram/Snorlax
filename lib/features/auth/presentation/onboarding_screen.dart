@@ -1,4 +1,3 @@
-// lib/features/auth/presentation/onboarding_screen.dart
 import 'package:flutter/material.dart';
 import '../../../core/calculations/nutrition_goal_calculator.dart';
 import '../../../core/widgets/glass_card.dart';
