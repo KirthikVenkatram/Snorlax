@@ -1,4 +1,3 @@
-// lib/features/workouts/presentation/workouts_home_screen.dart
 import 'package:flutter/material.dart';
 import '../../../core/widgets/glass_card.dart';
 import '../../strava/data/strava_connection_repository.dart';
@@ -34,7 +33,12 @@ class _WorkoutsHomeScreenState extends State<WorkoutsHomeScreen> {
   @override
   void initState() {
     super.initState();
-    widget.exerciseRepository.seedDefaultsIfEmpty(widget.uid);
+    // Fire-and-forget, but never unhandled: a failure here only means the
+    // default exercise library isn't pre-populated, which the picker's
+    // add-custom flow works around.
+    widget.exerciseRepository.seedDefaultsIfEmpty(widget.uid).catchError((Object error) {
+      debugPrint('Failed to seed default exercises: $error');
+    });
     _refresh();
   }
 
@@ -75,20 +79,41 @@ class _WorkoutsHomeScreenState extends State<WorkoutsHomeScreen> {
     );
   }
 
+  Future<void> _showLogOptions() async {
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.fitness_center),
+              title: const Text('Log strength workout'),
+              onTap: () => Navigator.of(sheetContext).pop('strength'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.directions_run),
+              title: const Text('Log general workout'),
+              onTap: () => Navigator.of(sheetContext).pop('general'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+    if (choice == 'strength') await _openLogStrength();
+    if (choice == 'general') await _openLogGeneral();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Workouts')),
-      floatingActionButton: PopupMenuButton<String>(
-        icon: const Icon(Icons.add),
-        onSelected: (value) {
-          if (value == 'strength') _openLogStrength();
-          if (value == 'general') _openLogGeneral();
-        },
-        itemBuilder: (context) => const [
-          PopupMenuItem(value: 'strength', child: Text('Log strength workout')),
-          PopupMenuItem(value: 'general', child: Text('Log general workout')),
-        ],
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showLogOptions,
+        tooltip: 'Log a workout',
+        child: const Icon(Icons.add),
       ),
       body: SafeArea(
         child: Padding(

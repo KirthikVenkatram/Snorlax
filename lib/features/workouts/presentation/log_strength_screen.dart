@@ -1,4 +1,3 @@
-// lib/features/workouts/presentation/log_strength_screen.dart
 import 'package:flutter/material.dart';
 import '../../../core/widgets/glass_card.dart';
 import '../../../core/widgets/primary_button.dart';
@@ -30,6 +29,13 @@ class _LogStrengthScreenState extends State<LogStrengthScreen> {
   final _durationController = TextEditingController(text: '45');
   final List<_ExerciseDraft> _exercises = [];
   bool _saving = false;
+  String? _durationError;
+
+  @override
+  void dispose() {
+    _durationController.dispose();
+    super.dispose();
+  }
 
   void _addExercise(Exercise exercise) {
     Navigator.of(context).pop();
@@ -51,28 +57,53 @@ class _LogStrengthScreenState extends State<LogStrengthScreen> {
     );
   }
 
-  Future<void> _save() async {
-    setState(() => _saving = true);
+  void _save() {
+    final durationMinutes = int.tryParse(_durationController.text.trim());
+    if (durationMinutes == null || durationMinutes <= 0) {
+      setState(() => _durationError = 'Enter a duration in whole minutes.');
+      return;
+    }
 
-    final exercises = [
-      for (final draft in _exercises)
-        ExerciseEntry(
-          exerciseName: draft.exerciseName,
-          sets: draft.sets
-              .map((s) => SetEntry(reps: s.reps, weightKg: s.weightKg))
-              .toList(),
-        ),
-    ];
+    setState(() {
+      _durationError = null;
+      _saving = true;
+    });
 
-    await widget.workoutRepository.createStrengthWorkout(
-      uid: widget.uid,
-      date: DateTime.now(),
-      durationMinutes: int.parse(_durationController.text),
-      exercises: exercises,
-    );
+    final messenger = ScaffoldMessenger.of(context);
 
-    if (!mounted) return;
-    setState(() => _saving = false);
+    try {
+      final exercises = [
+        for (final draft in _exercises)
+          ExerciseEntry(
+            exerciseName: draft.exerciseName,
+            sets: draft.sets
+                .map((s) => SetEntry(reps: s.reps, weightKg: s.weightKg))
+                .toList(),
+          ),
+      ];
+
+      // Deliberately not awaited: Firestore applies the write to its local
+      // cache immediately, but the returned Future only completes once the
+      // server acknowledges it — which never happens while offline. Blocking
+      // the UI on it would leave the user on a permanent spinner even though
+      // the data is safely queued. Failures are reported asynchronously.
+      widget.workoutRepository
+          .createStrengthWorkout(
+            uid: widget.uid,
+            date: DateTime.now(),
+            durationMinutes: durationMinutes,
+            exercises: exercises,
+          )
+          .then<void>((_) {}, onError: (Object error) {
+        debugPrint('Failed to save strength workout: $error');
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Could not save workout. Please try again.')),
+        );
+      });
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+
     widget.onSaved();
   }
 
@@ -87,7 +118,10 @@ class _LogStrengthScreenState extends State<LogStrengthScreen> {
             TextField(
               controller: _durationController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Duration (minutes)'),
+              decoration: InputDecoration(
+                labelText: 'Duration (minutes)',
+                errorText: _durationError,
+              ),
             ),
             const SizedBox(height: 16),
             for (final draft in _exercises)

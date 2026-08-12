@@ -1,4 +1,3 @@
-// lib/features/workouts/presentation/exercise_picker.dart
 import 'package:flutter/material.dart';
 import '../data/exercise_library_repository.dart';
 import '../domain/exercise.dart';
@@ -23,10 +22,32 @@ class _ExercisePickerState extends State<ExercisePicker> {
   final _controller = TextEditingController();
   List<Exercise> _results = [];
 
+  /// Incremented per search; a response is only applied if it belongs to the
+  /// most recent request, so a slow early query can't clobber a newer one.
+  int _searchToken = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Show the whole library up front rather than an empty list.
+    _search('');
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   Future<void> _search(String query) async {
-    final results = await widget.repository.search(widget.uid, query);
-    if (!mounted) return;
-    setState(() => _results = results);
+    final token = ++_searchToken;
+    try {
+      final results = await widget.repository.search(widget.uid, query);
+      if (!mounted || token != _searchToken) return;
+      setState(() => _results = results);
+    } catch (error) {
+      debugPrint('Exercise search failed: $error');
+    }
   }
 
   Future<void> _addCustom(String name) async {

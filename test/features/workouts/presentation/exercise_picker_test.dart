@@ -1,4 +1,3 @@
-// test/features/workouts/presentation/exercise_picker_test.dart
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,6 +6,25 @@ import 'package:fitness_tracker/features/workouts/domain/exercise.dart';
 import 'package:fitness_tracker/features/workouts/presentation/exercise_picker.dart';
 
 void main() {
+  testWidgets('ExercisePicker lists the library before the user types anything', (tester) async {
+    final firestore = FakeFirebaseFirestore();
+    final repository = ExerciseLibraryRepository(firestore: firestore);
+    await repository.seedDefaultsIfEmpty('uid-1');
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ExercisePicker(
+          uid: 'uid-1',
+          repository: repository,
+          onSelected: (_) {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ListTile), findsWidgets);
+  });
+
   testWidgets('ExercisePicker shows search results and calls onSelected on tap', (tester) async {
     final firestore = FakeFirebaseFirestore();
     final repository = ExerciseLibraryRepository(firestore: firestore);

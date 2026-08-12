@@ -22,7 +22,7 @@ List<ProgressPoint> topSetProgressPoints(List<Workout> workouts, String exercise
   return points;
 }
 
-class ExerciseProgressScreen extends StatelessWidget {
+class ExerciseProgressScreen extends StatefulWidget {
   const ExerciseProgressScreen({
     super.key,
     required this.uid,
@@ -35,19 +35,31 @@ class ExerciseProgressScreen extends StatelessWidget {
   final WorkoutRepository workoutRepository;
 
   @override
+  State<ExerciseProgressScreen> createState() => _ExerciseProgressScreenState();
+}
+
+class _ExerciseProgressScreenState extends State<ExerciseProgressScreen> {
+  // Resolved once, not inside build(), so rebuilds don't re-issue the query.
+  late final Future<List<Workout>> _workoutsFuture =
+      widget.workoutRepository.listWorkouts(widget.uid);
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(exerciseName)),
+      appBar: AppBar(title: Text(widget.exerciseName)),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: FutureBuilder<List<Workout>>(
-            future: workoutRepository.listWorkouts(uid),
+            future: _workoutsFuture,
             builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return const Center(child: Text('Could not load progress.'));
+              }
               if (!snapshot.hasData) {
                 return const Center(child: CircularProgressIndicator());
               }
-              final points = topSetProgressPoints(snapshot.data!, exerciseName);
+              final points = topSetProgressPoints(snapshot.data!, widget.exerciseName);
               return GlassCard(
                 child: SizedBox(height: 240, child: ProgressChart(points: points)),
               );

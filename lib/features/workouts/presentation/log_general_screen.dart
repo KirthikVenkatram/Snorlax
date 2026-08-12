@@ -1,4 +1,3 @@
-// lib/features/workouts/presentation/log_general_screen.dart
 import 'package:flutter/material.dart';
 import '../../../core/widgets/glass_card.dart';
 import '../../../core/widgets/primary_button.dart';
@@ -24,19 +23,50 @@ class _LogGeneralScreenState extends State<LogGeneralScreen> {
   final _durationController = TextEditingController(text: '30');
   final _notesController = TextEditingController();
   bool _saving = false;
+  String? _durationError;
 
-  Future<void> _save() async {
-    setState(() => _saving = true);
+  @override
+  void dispose() {
+    _durationController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
 
-    await widget.workoutRepository.createGeneralWorkout(
-      uid: widget.uid,
-      date: DateTime.now(),
-      durationMinutes: int.parse(_durationController.text),
-      notes: _notesController.text,
-    );
+  void _save() {
+    final durationMinutes = int.tryParse(_durationController.text.trim());
+    if (durationMinutes == null || durationMinutes <= 0) {
+      setState(() => _durationError = 'Enter a duration in whole minutes.');
+      return;
+    }
 
-    if (!mounted) return;
-    setState(() => _saving = false);
+    setState(() {
+      _durationError = null;
+      _saving = true;
+    });
+
+    final messenger = ScaffoldMessenger.of(context);
+
+    try {
+      // Deliberately not awaited — see the note in LogStrengthScreen._save:
+      // Firestore's write Future doesn't complete until the server acks, so
+      // awaiting it strands offline users on a spinner.
+      widget.workoutRepository
+          .createGeneralWorkout(
+            uid: widget.uid,
+            date: DateTime.now(),
+            durationMinutes: durationMinutes,
+            notes: _notesController.text,
+          )
+          .then<void>((_) {}, onError: (Object error) {
+        debugPrint('Failed to save general workout: $error');
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Could not save workout. Please try again.')),
+        );
+      });
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+
     widget.onSaved();
   }
 
@@ -54,7 +84,10 @@ class _LogGeneralScreenState extends State<LogGeneralScreen> {
                 TextField(
                   controller: _durationController,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Duration (minutes)'),
+                  decoration: InputDecoration(
+                    labelText: 'Duration (minutes)',
+                    errorText: _durationError,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextField(

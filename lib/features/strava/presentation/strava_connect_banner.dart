@@ -55,7 +55,13 @@ class _StravaConnectBannerState extends State<StravaConnectBanner> {
   }
 
   Future<void> _disconnect() async {
-    await widget.repository.disconnect(widget.uid);
+    setState(() => _error = null);
+    try {
+      await widget.repository.disconnect(widget.uid);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = 'Could not disconnect Strava. Please try again.');
+    }
   }
 
   @override
@@ -66,22 +72,30 @@ class _StravaConnectBannerState extends State<StravaConnectBanner> {
         final connected = snapshot.data != null;
 
         return GlassCard(
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                child: Text(connected ? 'Strava connected' : 'Connect Strava to sync your runs and rides'),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(connected ? 'Strava connected' : 'Connect Strava to sync your runs and rides'),
+                  ),
+                  const SizedBox(width: 8),
+                  if (_connecting)
+                    const SizedBox(
+                      width: 20, height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  else if (connected)
+                    TextButton(onPressed: _disconnect, child: const Text('Disconnect'))
+                  else
+                    PrimaryButton(label: 'Connect', onPressed: _connect),
+                ],
               ),
-              if (_connecting)
-                const SizedBox(
-                  width: 20, height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              else if (connected)
-                TextButton(onPressed: _disconnect, child: const Text('Disconnect'))
-              else
-                PrimaryButton(label: 'Connect', onPressed: _connect),
+              // The error goes on its own line: as a Row sibling it has no
+              // flex to give and overflows on typical phone widths.
               if (_error != null) ...[
-                const SizedBox(width: 8),
+                const SizedBox(height: 8),
                 Text(_error!, style: const TextStyle(color: AppColors.error)),
               ],
             ],
