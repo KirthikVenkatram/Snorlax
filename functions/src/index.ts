@@ -6,3 +6,4 @@ if (admin.apps.length === 0) {
 
 export { exchangeStravaToken } from './exchangeStravaToken';
 export { stravaWebhook } from './stravaWebhook';
+export { searchFood } from './searchFood';
