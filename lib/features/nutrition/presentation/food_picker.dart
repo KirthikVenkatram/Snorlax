@@ -90,6 +90,7 @@ class _FoodPickerState extends State<FoodPicker> {
           Padding(
             padding: const EdgeInsets.all(16),
             child: TextField(
+              key: const Key('foodSearchField'),
               controller: _controller,
               style: const TextStyle(color: AppColors.textPrimary),
               decoration: InputDecoration(
