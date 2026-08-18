@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/glass_card.dart';
+import '../../../core/widgets/primary_button.dart';
 import '../data/food_search_service.dart';
 import '../domain/food_entry.dart';
 import '../domain/food_search_result.dart';
@@ -80,26 +83,58 @@ class _FoodPickerState extends State<FoodPicker> {
     final query = _controller.text.trim();
 
     return Material(
+      color: AppColors.background,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TextField(
-            controller: _controller,
-            decoration: const InputDecoration(labelText: 'Search foods'),
-            onChanged: _search,
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: TextField(
+              controller: _controller,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: InputDecoration(
+                labelText: 'Search foods',
+                labelStyle: const TextStyle(color: AppColors.textSecondary),
+                prefixIcon: const Icon(Icons.search, color: AppColors.textSecondary),
+                filled: true,
+                fillColor: AppColors.surface,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+              onChanged: _search,
+            ),
           ),
           Expanded(
             child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               children: [
                 for (final result in _results)
                   ListTile(
-                    title: Text(result.name),
-                    subtitle: Text('${result.caloriesPer100g.toStringAsFixed(0)} kcal/100g'),
+                    title: Text(
+                      result.name,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    subtitle: Text(
+                      '${result.caloriesPer100g.toStringAsFixed(0)} kcal/100g',
+                      style: const TextStyle(color: AppColors.textSecondary),
+                    ),
                     onTap: () => widget.onSelected(result),
                   ),
                 if (query.isNotEmpty)
                   ListTile(
-                    title: Text('Add "$query"'),
+                    leading: const Icon(Icons.add_circle_outline, color: AppColors.accentGreen),
+                    title: Text(
+                      'Add "$query"',
+                      style: const TextStyle(
+                        color: AppColors.accentGreen,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     onTap: () => _addCustom(query),
                   ),
               ],
@@ -154,32 +189,40 @@ class _AddCustomFoodFormState extends State<_AddCustomFoodForm> {
     return Scaffold(
       appBar: AppBar(title: Text('Add "${widget.name}"')),
       body: SafeArea(
-        child: ListView(
+        child: Padding(
           padding: const EdgeInsets.all(24),
-          children: [
-            TextField(
-              controller: _caloriesController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Calories per 100g'),
+          child: GlassCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextField(
+                  controller: _caloriesController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Calories per 100g'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _proteinController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Protein (g) per 100g'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _carbsController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Carbs (g) per 100g'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _fatController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Fat (g) per 100g'),
+                ),
+                const SizedBox(height: 24),
+                PrimaryButton(label: 'Save', onPressed: _save),
+              ],
             ),
-            TextField(
-              controller: _proteinController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Protein (g) per 100g'),
-            ),
-            TextField(
-              controller: _carbsController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Carbs (g) per 100g'),
-            ),
-            TextField(
-              controller: _fatController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Fat (g) per 100g'),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(onPressed: _save, child: const Text('Save')),
-          ],
+          ),
         ),
       ),
     );
