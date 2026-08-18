@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/glass_card.dart';
+import '../../../core/widgets/progress_ring.dart';
 import '../data/food_search_service.dart';
 import '../data/nutrition_repository.dart';
 import '../domain/food_entry.dart';
+import 'food_entry_detail_screen.dart';
 import 'log_food_screen.dart';
 import 'nutrition_goals_screen.dart';
 
@@ -26,6 +28,7 @@ class NutritionHomeScreen extends StatefulWidget {
 class _NutritionHomeScreenState extends State<NutritionHomeScreen> {
   DateTime _selectedDate = DateTime.now();
   late Future<List<FoodEntry>> _entriesFuture;
+  late Future<NutritionGoals?> _goalsFuture;
 
   @override
   void initState() {
@@ -36,6 +39,7 @@ class _NutritionHomeScreenState extends State<NutritionHomeScreen> {
   void _refresh() {
     setState(() {
       _entriesFuture = widget.nutritionRepository.listFoodLog(widget.uid);
+      _goalsFuture = widget.nutritionRepository.getGoals(widget.uid);
     });
   }
 
@@ -131,11 +135,35 @@ class _NutritionHomeScreenState extends State<NutritionHomeScreen> {
 
               return ListView(
                 children: [
-                  GlassCard(
-                    child: Text(
-                      'Total: ${totalCalories.toStringAsFixed(0)} kcal',
-                      style: textTheme.headlineMedium,
-                    ),
+                  FutureBuilder<NutritionGoals?>(
+                    future: _goalsFuture,
+                    builder: (context, goalsSnapshot) {
+                      final goals = goalsSnapshot.data;
+                      final progress = goals == null || goals.dailyCalories == 0
+                          ? 0.0
+                          : (totalCalories / goals.dailyCalories).clamp(0.0, 1.0);
+                      return GlassCard(
+                        child: Column(
+                          children: [
+                            ProgressRing(
+                              progress: progress,
+                              color: AppColors.accentGreen,
+                              center: Text(
+                                '${totalCalories.toStringAsFixed(0)} kcal',
+                                style: textTheme.bodyMedium?.copyWith(color: AppColors.textPrimary),
+                              ),
+                            ),
+                            if (goals != null) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                'Goal: ${goals.dailyCalories.toStringAsFixed(0)} kcal',
+                                style: textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+                              ),
+                            ],
+                          ],
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 16),
                   for (final mealType in MealType.values) ...[
@@ -154,14 +182,29 @@ class _NutritionHomeScreenState extends State<NutritionHomeScreen> {
                         Padding(
                           padding: const EdgeInsets.only(bottom: 12),
                           child: GlassCard(
-                            child: ListTile(
-                              title: Text(
-                                entry.foodName,
-                                style: textTheme.bodyLarge?.copyWith(color: AppColors.textPrimary),
-                              ),
-                              subtitle: Text(
-                                '${entry.quantityGrams.toStringAsFixed(0)}g · ${entry.calories.toStringAsFixed(0)} kcal',
-                                style: textTheme.bodyMedium,
+                            child: Material(
+                              color: Colors.transparent,
+                              child: ListTile(
+                                title: Text(
+                                  entry.foodName,
+                                  style: textTheme.bodyLarge?.copyWith(color: AppColors.textPrimary),
+                                ),
+                                subtitle: Text(
+                                  '${entry.quantityGrams.toStringAsFixed(0)}g · ${entry.calories.toStringAsFixed(0)} kcal',
+                                  style: textTheme.bodyMedium,
+                                ),
+                                onTap: () async {
+                                  await Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => FoodEntryDetailScreen(
+                                        uid: widget.uid,
+                                        entry: entry,
+                                        nutritionRepository: widget.nutritionRepository,
+                                        onChanged: _refresh,
+                                      ),
+                                    ),
+                                  );
+                                },
                               ),
                             ),
                           ),
