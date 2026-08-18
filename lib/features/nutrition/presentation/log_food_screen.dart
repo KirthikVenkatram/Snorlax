@@ -90,6 +90,12 @@ class _LogFoodScreenState extends State<LogFoodScreen> with SingleTickerProvider
   Future<void> _saveParsedItems() async {
     setState(() => _saving = true);
     for (final item in _parsedItems) {
+      // Mirror the `grams <= 0` guard in _saveSelectedFood: a malformed
+      // LLM-parsed quantity must not reach Firestore, since it would make
+      // per-gram macro rates (calories/quantityGrams etc.) undefined for
+      // any later edit of this entry.
+      if (item.estimatedQuantityGrams <= 0) continue;
+
       FoodSearchResult resolved;
       try {
         final matches = await widget.searchService.search(widget.uid, item.foodName);

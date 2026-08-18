@@ -30,10 +30,20 @@ class _FoodEntryDetailScreenState extends State<FoodEntryDetailScreen> {
   /// Per-gram nutrition rate derived from the entry as originally logged,
   /// so editing quantity rescales macros consistently without needing to
   /// re-query the original food source.
-  double get _caloriesPerGram => widget.entry.calories / widget.entry.quantityGrams;
-  double get _proteinPerGram => widget.entry.proteinG / widget.entry.quantityGrams;
-  double get _carbsPerGram => widget.entry.carbsG / widget.entry.quantityGrams;
-  double get _fatPerGram => widget.entry.fatG / widget.entry.quantityGrams;
+  ///
+  /// Guarded against a zero (or negative) `quantityGrams` on the original
+  /// entry, which would otherwise divide out to Infinity/NaN and persist
+  /// that into Firestore on save. Such an entry shouldn't be logged in the
+  /// first place (see the `<= 0` guards in log_food_screen.dart), but this
+  /// keeps editing a pre-existing bad entry safe as defense in depth.
+  double get _caloriesPerGram =>
+      widget.entry.quantityGrams <= 0 ? 0 : widget.entry.calories / widget.entry.quantityGrams;
+  double get _proteinPerGram =>
+      widget.entry.quantityGrams <= 0 ? 0 : widget.entry.proteinG / widget.entry.quantityGrams;
+  double get _carbsPerGram =>
+      widget.entry.quantityGrams <= 0 ? 0 : widget.entry.carbsG / widget.entry.quantityGrams;
+  double get _fatPerGram =>
+      widget.entry.quantityGrams <= 0 ? 0 : widget.entry.fatG / widget.entry.quantityGrams;
 
   @override
   void dispose() {
@@ -63,7 +73,9 @@ class _FoodEntryDetailScreenState extends State<FoodEntryDetailScreen> {
   }
 
   Future<void> _delete() async {
-    await widget.nutritionRepository.deleteFoodEntry(widget.uid, widget.entry.id);
+    widget.nutritionRepository
+        .deleteFoodEntry(widget.uid, widget.entry.id)
+        .then((_) {}, onError: (Object error) => debugPrint('Failed to delete food entry: $error'));
     if (!mounted) return;
     widget.onChanged();
     Navigator.of(context).pop();
