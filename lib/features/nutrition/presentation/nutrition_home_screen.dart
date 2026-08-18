@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/glass_card.dart';
 import '../data/food_search_service.dart';
 import '../data/nutrition_repository.dart';
@@ -85,6 +86,15 @@ class _NutritionHomeScreenState extends State<NutritionHomeScreen> {
           child: FutureBuilder<List<FoodEntry>>(
             future: _entriesFuture,
             builder: (context, snapshot) {
+              final textTheme = Theme.of(context).textTheme;
+              if (snapshot.hasError) {
+                return Center(
+                  child: Text(
+                    'Could not load food log.',
+                    style: textTheme.bodyLarge?.copyWith(color: AppColors.error),
+                  ),
+                );
+              }
               if (!snapshot.hasData) {
                 return const Center(child: CircularProgressIndicator());
               }
@@ -92,25 +102,54 @@ class _NutritionHomeScreenState extends State<NutritionHomeScreen> {
                   .where((e) => _isSameDay(e.date, _selectedDate))
                   .toList();
               if (entries.isEmpty) {
-                return const Center(child: Text('No food logged yet today.'));
+                return Center(
+                  child: Text(
+                    'No food logged yet today.',
+                    style: textTheme.bodyLarge?.copyWith(color: AppColors.textSecondary),
+                  ),
+                );
               }
 
               final totalCalories = entries.fold<double>(0, (sum, e) => sum + e.calories);
 
               return ListView(
                 children: [
-                  GlassCard(child: Text('Total: ${totalCalories.toStringAsFixed(0)} kcal')),
+                  GlassCard(
+                    child: Text(
+                      'Total: ${totalCalories.toStringAsFixed(0)} kcal',
+                      style: textTheme.headlineMedium,
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   for (final mealType in MealType.values) ...[
-                    for (final entry in entries.where((e) => e.mealType == mealType))
-                      GlassCard(
-                        child: ListTile(
-                          title: Text(entry.foodName),
-                          subtitle: Text(
-                            '${mealType.name} · ${entry.quantityGrams.toStringAsFixed(0)}g · ${entry.calories.toStringAsFixed(0)} kcal',
+                    if (entries.any((e) => e.mealType == mealType)) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          mealType.name,
+                          style: textTheme.bodyMedium?.copyWith(
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
+                      for (final entry in entries.where((e) => e.mealType == mealType))
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: GlassCard(
+                            child: ListTile(
+                              title: Text(
+                                entry.foodName,
+                                style: textTheme.bodyLarge?.copyWith(color: AppColors.textPrimary),
+                              ),
+                              subtitle: Text(
+                                '${entry.quantityGrams.toStringAsFixed(0)}g · ${entry.calories.toStringAsFixed(0)} kcal',
+                                style: textTheme.bodyMedium,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   ],
                 ],
               );
