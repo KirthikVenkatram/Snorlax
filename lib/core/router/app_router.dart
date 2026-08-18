@@ -8,6 +8,8 @@ import '../../features/auth/presentation/auth_providers.dart';
 import '../../features/auth/presentation/onboarding_screen.dart';
 import '../../features/auth/presentation/sign_in_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
+import '../../features/nutrition/presentation/nutrition_home_screen.dart';
+import '../../features/nutrition/presentation/nutrition_providers.dart';
 import '../../features/strava/presentation/strava_providers.dart';
 import '../../features/workouts/presentation/workout_providers.dart';
 import '../../features/workouts/presentation/workouts_home_screen.dart';
@@ -90,6 +92,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             workoutRepository: ref.read(workoutRepositoryProvider),
             exerciseRepository: ref.read(exerciseLibraryRepositoryProvider),
             stravaRepository: ref.read(stravaConnectionRepositoryProvider),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/nutrition',
+        builder: (context, state) {
+          final uid = ref.read(firebaseAuthProvider).currentUser!.uid;
+          return NutritionHomeScreen(
+            uid: uid,
+            nutritionRepository: ref.read(nutritionRepositoryProvider),
+            searchService: ref.read(foodSearchServiceProvider),
           );
         },
       ),

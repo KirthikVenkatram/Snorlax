@@ -29,7 +29,12 @@ class DashboardScreen extends StatelessWidget {
                       center: Text('0 kcal'),
                     ),
                     const SizedBox(height: 16),
-                    const Text('Nutrition and habits land here in Phase 3+.'),
+                    const Text('Log meals and track calories/macros against your goals.'),
+                    const SizedBox(height: 16),
+                    PrimaryButton(
+                      label: 'Open nutrition',
+                      onPressed: () => GoRouter.of(context).push('/nutrition'),
+                    ),
                   ],
                 ),
               ),
