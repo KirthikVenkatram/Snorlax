@@ -5,6 +5,7 @@ import '../data/food_search_service.dart';
 import '../data/nutrition_repository.dart';
 import '../domain/food_entry.dart';
 import 'log_food_screen.dart';
+import 'nutrition_goals_screen.dart';
 
 class NutritionHomeScreen extends StatefulWidget {
   const NutritionHomeScreen({
@@ -63,6 +64,22 @@ class _NutritionHomeScreenState extends State<NutritionHomeScreen> {
       appBar: AppBar(
         title: const Text('Nutrition'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.flag_outlined),
+            tooltip: 'Goals',
+            onPressed: () async {
+              await Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => NutritionGoalsScreen(
+                    uid: widget.uid,
+                    nutritionRepository: widget.nutritionRepository,
+                    onSaved: () => Navigator.of(context).pop(),
+                  ),
+                ),
+              );
+              _refresh();
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.chevron_left),
             onPressed: () => setState(() =>
