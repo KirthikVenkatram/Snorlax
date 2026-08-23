@@ -40,6 +40,7 @@ void main() {
     });
 
     var saved = false;
+    final selectedDate = DateTime(2026, 8, 20);
 
     await tester.pumpWidget(
       MaterialApp(
@@ -47,6 +48,7 @@ void main() {
           uid: 'uid-1',
           nutritionRepository: nutritionRepository,
           searchService: searchService,
+          date: selectedDate,
           onSaved: () => saved = true,
         ),
       ),
@@ -69,6 +71,7 @@ void main() {
     expect(entries, hasLength(1));
     expect(entries.first.foodName, 'White Rice');
     expect(entries.first.quantityGrams, 200);
+    expect(entries.first.date, selectedDate);
     // 130 kcal/100g scaled to 200g = 260.
     expect(entries.first.calories, 260);
   });

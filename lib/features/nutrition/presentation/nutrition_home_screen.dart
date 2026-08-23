@@ -53,6 +53,7 @@ class _NutritionHomeScreenState extends State<NutritionHomeScreen> {
           uid: widget.uid,
           nutritionRepository: widget.nutritionRepository,
           searchService: widget.searchService,
+          date: _selectedDate,
           onSaved: () {
             Navigator.of(context).pop();
             _refresh();

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import '../domain/custom_food.dart';
 
 class CustomFoodRepository {
@@ -32,7 +33,16 @@ class CustomFoodRepository {
       carbsPer100g: carbsPer100g,
       fatPer100g: fatPer100g,
     );
-    await doc.set(food.toJson());
+    // Fire-and-handle-errors, not awaited: Firestore's offline persistence
+    // updates the local cache immediately but the returned Future doesn't
+    // resolve until the server acks, which never happens offline — awaiting
+    // it here would leave the add-custom-food flow hanging (and never call
+    // back into the picker) with no connectivity. The document id is
+    // generated client-side, so `food` is already complete without the ack.
+    doc.set(food.toJson()).then(
+          (_) {},
+          onError: (Object error) => debugPrint('Failed to add custom food: $error'),
+        );
     return food;
   }
 

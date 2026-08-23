@@ -13,12 +13,17 @@ class LogFoodScreen extends StatefulWidget {
     required this.uid,
     required this.nutritionRepository,
     required this.searchService,
+    required this.date,
     required this.onSaved,
   });
 
   final String uid;
   final NutritionRepository nutritionRepository;
   final FoodSearchService searchService;
+
+  /// The day the logged entries belong to — the day currently being viewed
+  /// on the nutrition home screen, which is not necessarily today.
+  final DateTime date;
   final VoidCallback onSaved;
 
   @override
@@ -71,7 +76,7 @@ class _LogFoodScreenState extends State<LogFoodScreen> with SingleTickerProvider
     widget.nutritionRepository
         .logFood(
           uid: widget.uid,
-          date: DateTime.now(),
+          date: widget.date,
           mealType: _mealType,
           foodName: food.name,
           quantityGrams: grams,
@@ -117,7 +122,7 @@ class _LogFoodScreenState extends State<LogFoodScreen> with SingleTickerProvider
       widget.nutritionRepository
           .logFood(
             uid: widget.uid,
-            date: DateTime.now(),
+            date: widget.date,
             mealType: _mealType,
             foodName: item.foodName,
             quantityGrams: item.estimatedQuantityGrams,
