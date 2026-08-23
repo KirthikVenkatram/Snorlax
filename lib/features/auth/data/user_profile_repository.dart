@@ -66,7 +66,10 @@ class UserProfileRepository {
   final FirebaseFirestore _firestore;
 
   Future<void> saveProfile(String uid, UserProfile profile) async {
-    await _firestore.collection('users').doc(uid).set(profile.toJson());
+    await _firestore.collection('users').doc(uid).set(
+          profile.toJson(),
+          SetOptions(merge: true),
+        );
   }
 
   Future<UserProfile?> getProfile(String uid) async {

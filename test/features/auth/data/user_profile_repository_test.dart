@@ -44,4 +44,32 @@ void main() {
 
     expect(result, isNull);
   });
+
+  test('saveProfile preserves unrelated user data', () async {
+    final firestore = FakeFirebaseFirestore();
+    final repository = UserProfileRepository(firestore: firestore);
+    await firestore.collection('users').doc('uid-123').set({'futureSetting': true});
+
+    final profile = UserProfile(
+      age: 28,
+      weightKg: 75,
+      heightCm: 178,
+      sex: Sex.male,
+      activityLevel: ActivityLevel.moderate,
+      goal: Goal.maintain,
+      targets: NutritionGoalCalculator.calculate(
+        weightKg: 75,
+        heightCm: 178,
+        age: 28,
+        sex: Sex.male,
+        activityLevel: ActivityLevel.moderate,
+        goal: Goal.maintain,
+      ),
+    );
+
+    await repository.saveProfile('uid-123', profile);
+
+    final data = (await firestore.collection('users').doc('uid-123').get()).data()!;
+    expect(data['futureSetting'], isTrue);
+  });
 }
