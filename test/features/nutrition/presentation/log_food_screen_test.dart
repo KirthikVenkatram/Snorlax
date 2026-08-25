@@ -75,4 +75,146 @@ void main() {
     // 130 kcal/100g scaled to 200g = 260.
     expect(entries.first.calories, 260);
   });
+
+  testWidgets('describe mode: parse text, save all logs every parsed item', (tester) async {
+    final functions = MockFirebaseFunctions();
+    final firestore = FakeFirebaseFirestore();
+    final customFoodRepository = CustomFoodRepository(firestore: firestore);
+    final searchService = FoodSearchService(functions: functions, customFoodRepository: customFoodRepository);
+    final nutritionRepository = NutritionRepository(firestore: firestore);
+
+    final parseCallable = MockHttpsCallable();
+    final parseResult = MockHttpsCallableResult<Map<String, dynamic>>();
+    when(() => functions.httpsCallable('parseFoodText')).thenReturn(parseCallable);
+    when(() => parseCallable.call<Map<String, dynamic>>(any()))
+        .thenAnswer((_) async => parseResult);
+    when(() => parseResult.data).thenReturn({
+      'items': [
+        {'foodName': 'Dosa', 'estimatedQuantityGrams': 120},
+        {'foodName': 'Sambar', 'estimatedQuantityGrams': 200},
+      ],
+    });
+
+    // Each parsed item is resolved through searchFood first.
+    final searchCallable = MockHttpsCallable();
+    final searchResult = MockHttpsCallableResult<Map<String, dynamic>>();
+    when(() => functions.httpsCallable('searchFood')).thenReturn(searchCallable);
+    when(() => searchCallable.call<Map<String, dynamic>>(any()))
+        .thenAnswer((_) async => searchResult);
+    when(() => searchResult.data).thenReturn({
+      'results': [
+        {
+          'name': 'Resolved food',
+          'source': 'usda',
+          'caloriesPer100g': 100,
+          'proteinPer100g': 5,
+          'carbsPer100g': 20,
+          'fatPer100g': 2,
+        },
+      ],
+    });
+
+    var saved = false;
+    final selectedDate = DateTime(2026, 8, 20);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LogFoodScreen(
+          uid: 'uid-1',
+          nutritionRepository: nutritionRepository,
+          searchService: searchService,
+          date: selectedDate,
+          onSaved: () => saved = true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Describe'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).last, 'a dosa and some sambar');
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Parse'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Dosa'), findsOneWidget);
+    expect(find.textContaining('Sambar'), findsOneWidget);
+
+    await tester.tap(find.text('Save all'));
+    await tester.pumpAndSettle();
+
+    expect(saved, isTrue);
+    final entries = await nutritionRepository.listFoodLog('uid-1');
+    expect(entries, hasLength(2));
+
+    final dosa = entries.firstWhere((e) => e.foodName == 'Dosa');
+    expect(dosa.quantityGrams, 120);
+    expect(dosa.date, selectedDate);
+    // 100 kcal/100g scaled to 120g = 120.
+    expect(dosa.calories, 120);
+    expect(dosa.proteinG, 6);
+
+    final sambar = entries.firstWhere((e) => e.foodName == 'Sambar');
+    expect(sambar.quantityGrams, 200);
+    expect(sambar.calories, 200);
+  });
+
+  testWidgets('describe mode: a total lookup failure shows an error, not a stuck spinner',
+      (tester) async {
+    final functions = MockFirebaseFunctions();
+    final firestore = FakeFirebaseFirestore();
+    final customFoodRepository = CustomFoodRepository(firestore: firestore);
+    final searchService = FoodSearchService(functions: functions, customFoodRepository: customFoodRepository);
+    final nutritionRepository = NutritionRepository(firestore: firestore);
+
+    final parseCallable = MockHttpsCallable();
+    final parseResult = MockHttpsCallableResult<Map<String, dynamic>>();
+    when(() => functions.httpsCallable('parseFoodText')).thenReturn(parseCallable);
+    when(() => parseCallable.call<Map<String, dynamic>>(any()))
+        .thenAnswer((_) async => parseResult);
+    when(() => parseResult.data).thenReturn({
+      'items': [
+        {'foodName': 'Dosa', 'estimatedQuantityGrams': 120},
+      ],
+    });
+
+    // Both the search and the LLM estimate fall over.
+    final failingCallable = MockHttpsCallable();
+    when(() => functions.httpsCallable('searchFood')).thenReturn(failingCallable);
+    when(() => functions.httpsCallable('estimateNutrition')).thenReturn(failingCallable);
+    when(() => failingCallable.call<Map<String, dynamic>>(any()))
+        .thenThrow(Exception('unavailable'));
+
+    var saved = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LogFoodScreen(
+          uid: 'uid-1',
+          nutritionRepository: nutritionRepository,
+          searchService: searchService,
+          date: DateTime(2026, 8, 20),
+          onSaved: () => saved = true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Describe'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, 'a dosa');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Parse'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Save all'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.textContaining('Could not look up nutrition'), findsOneWidget);
+    expect(saved, isFalse);
+    expect(await nutritionRepository.listFoodLog('uid-1'), isEmpty);
+  });
 }

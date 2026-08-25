@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/glass_card.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../data/food_search_service.dart';
@@ -93,49 +94,84 @@ class _LogFoodScreenState extends State<LogFoodScreen> with SingleTickerProvider
   }
 
   Future<void> _saveParsedItems() async {
-    setState(() => _saving = true);
-    for (final item in _parsedItems) {
-      // Mirror the `grams <= 0` guard in _saveSelectedFood: a malformed
-      // LLM-parsed quantity must not reach Firestore, since it would make
-      // per-gram macro rates (calories/quantityGrams etc.) undefined for
-      // any later edit of this entry.
-      if (item.estimatedQuantityGrams <= 0) continue;
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    var failedItems = 0;
+    var savedItems = 0;
+    try {
+      for (final item in _parsedItems) {
+        // Mirror the `grams <= 0` guard in _saveSelectedFood: a malformed
+        // LLM-parsed quantity must not reach Firestore, since it would make
+        // per-gram macro rates (calories/quantityGrams etc.) undefined for
+        // any later edit of this entry.
+        if (item.estimatedQuantityGrams <= 0) continue;
 
-      FoodSearchResult resolved;
-      try {
-        final matches = await widget.searchService.search(widget.uid, item.foodName);
-        resolved = matches.isNotEmpty
-            ? matches.first
-            : await widget.searchService.estimateNutrition(item.foodName);
-      } catch (_) {
-        resolved = await widget.searchService.estimateNutrition(item.foodName);
+        FoodSearchResult resolved;
+        try {
+          final matches = await widget.searchService.search(widget.uid, item.foodName);
+          resolved = matches.isNotEmpty
+              ? matches.first
+              : await widget.searchService.estimateNutrition(item.foodName);
+        } catch (_) {
+          try {
+            resolved = await widget.searchService.estimateNutrition(item.foodName);
+          } catch (_) {
+            // Both search and the LLM estimate failed for this item (offline,
+            // or every provider rate-limited). Skip just this item and keep
+            // saving the rest rather than discarding the whole parsed batch;
+            // the user is told below how many items were dropped.
+            failedItems++;
+            continue;
+          }
+        }
+        final scale = item.estimatedQuantityGrams / 100;
+        // Fire-and-handle-errors rather than awaited: Firestore's offline
+        // persistence updates the local cache immediately but the returned
+        // Future doesn't resolve until the server acks, which never happens
+        // offline — awaiting it here would hang this loop (and the UI)
+        // indefinitely with no connectivity. The resolve-macros calls above
+        // are Cloud Function calls and inherently require connectivity
+        // already, so only this final write needs the fire-and-forget
+        // treatment.
+        widget.nutritionRepository
+            .logFood(
+              uid: widget.uid,
+              date: widget.date,
+              mealType: _mealType,
+              foodName: item.foodName,
+              quantityGrams: item.estimatedQuantityGrams,
+              calories: resolved.caloriesPer100g * scale,
+              proteinG: resolved.proteinPer100g * scale,
+              carbsG: resolved.carbsPer100g * scale,
+              fatG: resolved.fatPer100g * scale,
+              source: resolved.source,
+            )
+            .then((_) {}, onError: (Object error) => debugPrint('Failed to log food: $error'));
+        savedItems++;
       }
-      final scale = item.estimatedQuantityGrams / 100;
-      // Fire-and-handle-errors rather than awaited: Firestore's offline
-      // persistence updates the local cache immediately but the returned
-      // Future doesn't resolve until the server acks, which never happens
-      // offline — awaiting it here would hang this loop (and the UI)
-      // indefinitely with no connectivity. The resolve-macros calls above
-      // are Cloud Function calls and inherently require connectivity
-      // already, so only this final write needs the fire-and-forget
-      // treatment.
-      widget.nutritionRepository
-          .logFood(
-            uid: widget.uid,
-            date: widget.date,
-            mealType: _mealType,
-            foodName: item.foodName,
-            quantityGrams: item.estimatedQuantityGrams,
-            calories: resolved.caloriesPer100g * scale,
-            proteinG: resolved.proteinPer100g * scale,
-            carbsG: resolved.carbsPer100g * scale,
-            fatG: resolved.fatPer100g * scale,
-            source: resolved.source,
-          )
-          .then((_) {}, onError: (Object error) => debugPrint('Failed to log food: $error'));
+    } catch (error) {
+      // Anything unexpected outside the per-item handling above. Surface it
+      // instead of letting it escape and strand the UI on the spinner.
+      if (mounted) {
+        setState(() => _error = 'Could not save those items. Please try again.');
+      }
+      return;
+    } finally {
+      // Always runs, so the spinner can never be left up permanently.
+      if (mounted) setState(() => _saving = false);
     }
+
     if (!mounted) return;
-    setState(() => _saving = false);
+    if (failedItems > 0) {
+      setState(() => _error = savedItems == 0
+          ? 'Could not look up nutrition for those items. Please try again.'
+          : 'Saved, but could not look up nutrition for $failedItems item(s).');
+      // Nothing was saved at all — keep the user on this screen with their
+      // parsed items intact so they can retry.
+      if (savedItems == 0) return;
+    }
     widget.onSaved();
   }
 
@@ -226,7 +262,13 @@ class _LogFoodScreenState extends State<LogFoodScreen> with SingleTickerProvider
         OutlinedButton(onPressed: _parseNaturalLanguage, child: const Text('Parse')),
         if (_error != null) ...[
           const SizedBox(height: 8),
-          Text(_error!, style: const TextStyle(color: Colors.redAccent)),
+          Text(
+            _error!,
+            style: Theme.of(context)
+                .textTheme
+                .bodyMedium
+                ?.copyWith(color: AppColors.error),
+          ),
         ],
         const SizedBox(height: 16),
         for (final item in _parsedItems)
