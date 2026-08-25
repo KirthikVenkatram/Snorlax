@@ -81,6 +81,11 @@ class _NutritionHomeScreenState extends State<NutritionHomeScreen> {
         ),
       ),
     );
+    // Also refresh on manual back-navigation (e.g. the user backed out after
+    // a partial-failure message on the Describe tab, where onSaved
+    // deliberately isn't called) — some items may have already reached
+    // Firestore via the fire-and-forget writes and should show up.
+    _refresh();
   }
 
   @override

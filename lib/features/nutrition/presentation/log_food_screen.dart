@@ -98,7 +98,10 @@ class _LogFoodScreenState extends State<LogFoodScreen> with SingleTickerProvider
       _saving = true;
       _error = null;
     });
-    var failedItems = 0;
+    // Items that failed nutrition lookup are kept (not just counted) so a
+    // retry only re-attempts what's actually left to resolve, instead of
+    // re-saving items that already succeeded.
+    final failedItems = <ParsedFoodItem>[];
     var savedItems = 0;
     try {
       for (final item in _parsedItems) {
@@ -122,7 +125,7 @@ class _LogFoodScreenState extends State<LogFoodScreen> with SingleTickerProvider
             // or every provider rate-limited). Skip just this item and keep
             // saving the rest rather than discarding the whole parsed batch;
             // the user is told below how many items were dropped.
-            failedItems++;
+            failedItems.add(item);
             continue;
           }
         }
@@ -164,14 +167,31 @@ class _LogFoodScreenState extends State<LogFoodScreen> with SingleTickerProvider
     }
 
     if (!mounted) return;
-    if (failedItems > 0) {
-      setState(() => _error = savedItems == 0
-          ? 'Could not look up nutrition for those items. Please try again.'
-          : 'Saved, but could not look up nutrition for $failedItems item(s).');
-      // Nothing was saved at all — keep the user on this screen with their
-      // parsed items intact so they can retry.
-      if (savedItems == 0) return;
+
+    if (failedItems.isNotEmpty || savedItems == 0) {
+      // Something didn't make it to Firestore. Stay on this screen instead
+      // of calling onSaved() — the caller's onSaved pops immediately, which
+      // would tear this screen down in the same frame the message is set,
+      // so it would never actually be seen. Only the unresolved items are
+      // kept in the list, so tapping "Save all" again doesn't re-save what
+      // already succeeded.
+      final String message;
+      if (savedItems == 0 && failedItems.isEmpty) {
+        message = "Those items didn't have a valid quantity to log. "
+            'Try describing the portion size.';
+      } else if (savedItems == 0) {
+        message = 'Could not look up nutrition for those items. Please try again.';
+      } else {
+        message =
+            'Saved $savedItems item(s), but could not look up nutrition for ${failedItems.length}. Retry the rest below.';
+      }
+      setState(() {
+        _parsedItems = failedItems;
+        _error = message;
+      });
+      return;
     }
+
     widget.onSaved();
   }
 
