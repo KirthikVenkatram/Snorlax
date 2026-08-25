@@ -103,6 +103,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             uid: uid,
             nutritionRepository: ref.read(nutritionRepositoryProvider),
             searchService: ref.read(foodSearchServiceProvider),
+            userProfileRepository: ref.read(userProfileRepositoryProvider),
           );
         },
       ),
