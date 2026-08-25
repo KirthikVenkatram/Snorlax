@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/glass_card.dart';
 import '../../../core/widgets/progress_ring.dart';
+import '../../auth/data/user_profile_repository.dart';
 import '../data/food_search_service.dart';
 import '../data/nutrition_repository.dart';
 import '../domain/food_entry.dart';
@@ -15,11 +16,16 @@ class NutritionHomeScreen extends StatefulWidget {
     required this.uid,
     required this.nutritionRepository,
     required this.searchService,
+    required this.userProfileRepository,
   });
 
   final String uid;
   final NutritionRepository nutritionRepository;
   final FoodSearchService searchService;
+
+  /// Used only to pre-fill the nutrition goals screen from the targets
+  /// computed during onboarding when the user has not saved goals yet.
+  final UserProfileRepository userProfileRepository;
 
   @override
   State<NutritionHomeScreen> createState() => _NutritionHomeScreenState();
@@ -41,6 +47,20 @@ class _NutritionHomeScreenState extends State<NutritionHomeScreen> {
       _entriesFuture = widget.nutritionRepository.listFoodLog(widget.uid);
       _goalsFuture = widget.nutritionRepository.getGoals(widget.uid);
     });
+  }
+
+  /// One line of the macro summary, e.g. `Protein: 45 / 150 g`.
+  Widget _macroRow(BuildContext context, String label, double total, double goal) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: Text(
+        '$label: ${total.toStringAsFixed(0)} / ${goal.toStringAsFixed(0)} g',
+        style: Theme.of(context)
+            .textTheme
+            .bodyMedium
+            ?.copyWith(color: AppColors.textSecondary),
+      ),
+    );
   }
 
   bool _isSameDay(DateTime a, DateTime b) =>
@@ -78,6 +98,7 @@ class _NutritionHomeScreenState extends State<NutritionHomeScreen> {
                   builder: (_) => NutritionGoalsScreen(
                     uid: widget.uid,
                     nutritionRepository: widget.nutritionRepository,
+                    userProfileRepository: widget.userProfileRepository,
                     onSaved: () => Navigator.of(context).pop(),
                   ),
                 ),
@@ -123,16 +144,14 @@ class _NutritionHomeScreenState extends State<NutritionHomeScreen> {
               final entries = snapshot.data!
                   .where((e) => _isSameDay(e.date, _selectedDate))
                   .toList();
-              if (entries.isEmpty) {
-                return Center(
-                  child: Text(
-                    'No food logged yet today.',
-                    style: textTheme.bodyLarge?.copyWith(color: AppColors.textSecondary),
-                  ),
-                );
-              }
-
+              // Totals fold over an empty list to zero, so the summary card
+              // below renders goal progress even on a day with nothing
+              // logged yet — the empty-state message is content under the
+              // card rather than a replacement for the whole screen.
               final totalCalories = entries.fold<double>(0, (sum, e) => sum + e.calories);
+              final totalProtein = entries.fold<double>(0, (sum, e) => sum + e.proteinG);
+              final totalCarbs = entries.fold<double>(0, (sum, e) => sum + e.carbsG);
+              final totalFat = entries.fold<double>(0, (sum, e) => sum + e.fatG);
 
               return ListView(
                 children: [
@@ -160,6 +179,10 @@ class _NutritionHomeScreenState extends State<NutritionHomeScreen> {
                                 'Goal: ${goals.dailyCalories.toStringAsFixed(0)} kcal',
                                 style: textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
                               ),
+                              const SizedBox(height: 8),
+                              _macroRow(context, 'Protein', totalProtein, goals.proteinG),
+                              _macroRow(context, 'Carbs', totalCarbs, goals.carbsG),
+                              _macroRow(context, 'Fat', totalFat, goals.fatG),
                             ],
                           ],
                         ),
@@ -167,6 +190,18 @@ class _NutritionHomeScreenState extends State<NutritionHomeScreen> {
                     },
                   ),
                   const SizedBox(height: 16),
+                  if (entries.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 24),
+                      child: Center(
+                        child: Text(
+                          _isSameDay(_selectedDate, DateTime.now())
+                              ? 'No food logged yet today.'
+                              : 'No food logged yet.',
+                          style: textTheme.bodyLarge?.copyWith(color: AppColors.textSecondary),
+                        ),
+                      ),
+                    ),
                   for (final mealType in MealType.values) ...[
                     if (entries.any((e) => e.mealType == mealType)) ...[
                       Padding(
@@ -191,9 +226,14 @@ class _NutritionHomeScreenState extends State<NutritionHomeScreen> {
                                   style: textTheme.bodyLarge?.copyWith(color: AppColors.textPrimary),
                                 ),
                                 subtitle: Text(
-                                  '${entry.quantityGrams.toStringAsFixed(0)}g · ${entry.calories.toStringAsFixed(0)} kcal',
+                                  '${entry.quantityGrams.toStringAsFixed(0)}g · '
+                                  '${entry.calories.toStringAsFixed(0)} kcal\n'
+                                  'P ${entry.proteinG.toStringAsFixed(0)}g · '
+                                  'C ${entry.carbsG.toStringAsFixed(0)}g · '
+                                  'F ${entry.fatG.toStringAsFixed(0)}g',
                                   style: textTheme.bodyMedium,
                                 ),
+                                isThreeLine: true,
                                 onTap: () async {
                                   await Navigator.of(context).push(
                                     MaterialPageRoute(
