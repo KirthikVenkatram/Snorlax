@@ -12,20 +12,7 @@ class GoalRepository {
   Future<String> createGoal(String uid, FitnessGoal goal) async {
     final doc = _goals(uid).doc(goal.id);
     final batch = _firestore.batch();
-    if (goal.category == GoalCategory.primary && goal.status == GoalStatus.active) {
-      final activePrimaryGoals = await _goals(uid)
-          .where('category', isEqualTo: GoalCategory.primary.name)
-          .where('status', isEqualTo: GoalStatus.active.name)
-          .get();
-      for (final activeGoal in activePrimaryGoals.docs) {
-        if (activeGoal.id != doc.id) {
-          batch.update(activeGoal.reference, {
-            'status': GoalStatus.archived.name,
-            'updatedAt': Timestamp.fromDate(goal.updatedAt),
-          });
-        }
-      }
-    }
+    await _archiveOtherActivePrimaryGoals(uid, batch, goal, excludingId: doc.id);
     batch.set(doc, goal.toJson());
     await batch.commit();
     return doc.id;
@@ -37,7 +24,40 @@ class GoalRepository {
   }
 
   Future<void> updateGoal(String uid, FitnessGoal goal) async {
-    await _goals(uid).doc(goal.id).set(goal.toJson());
+    final batch = _firestore.batch();
+    // Reactivating a paused/archived primary goal (or editing an
+    // already-active one) must uphold the same "at most one active primary
+    // goal" invariant createGoal enforces — otherwise a status transition
+    // through this method could silently leave two goals active at once.
+    await _archiveOtherActivePrimaryGoals(uid, batch, goal, excludingId: goal.id);
+    batch.set(_goals(uid).doc(goal.id), goal.toJson());
+    await batch.commit();
+  }
+
+  /// If [goal] is an active primary goal, archives every other active
+  /// primary goal (excluding [excludingId], the goal being written) in the
+  /// same batch, so the write this batch is building for never coexists
+  /// with a second active primary goal.
+  Future<void> _archiveOtherActivePrimaryGoals(
+    String uid,
+    WriteBatch batch,
+    FitnessGoal goal, {
+    required String excludingId,
+  }) async {
+    if (goal.category != GoalCategory.primary || goal.status != GoalStatus.active) return;
+
+    final activePrimaryGoals = await _goals(uid)
+        .where('category', isEqualTo: GoalCategory.primary.name)
+        .where('status', isEqualTo: GoalStatus.active.name)
+        .get();
+    for (final activeGoal in activePrimaryGoals.docs) {
+      if (activeGoal.id != excludingId) {
+        batch.update(activeGoal.reference, {
+          'status': GoalStatus.archived.name,
+          'updatedAt': Timestamp.now(),
+        });
+      }
+    }
   }
 
   Future<void> archiveGoal(String uid, String goalId) async {
