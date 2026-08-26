@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 /// The physical circumference/weight metrics that can be recorded and used
 /// as inputs to body-composition estimates.
 enum BodyMetric {
@@ -37,4 +39,26 @@ class BodyMeasurement {
   final String? supersessionId;
 
   final DateTime createdAt;
+
+  Map<String, dynamic> toJson() => {
+        'metric': metric.name,
+        'value': value,
+        'unit': unit,
+        'measuredAt': Timestamp.fromDate(measuredAt),
+        'createdAt': Timestamp.fromDate(createdAt),
+        if (method != null) 'method': method,
+        if (note != null) 'note': note,
+        if (supersessionId != null) 'supersessionId': supersessionId,
+      };
+
+  factory BodyMeasurement.fromJson(Map<String, dynamic> json) => BodyMeasurement(
+        metric: BodyMetric.values.byName(json['metric'] as String),
+        value: (json['value'] as num).toDouble(),
+        unit: json['unit'] as String,
+        measuredAt: (json['measuredAt'] as Timestamp).toDate(),
+        createdAt: (json['createdAt'] as Timestamp).toDate(),
+        method: json['method'] as String?,
+        note: json['note'] as String?,
+        supersessionId: json['supersessionId'] as String?,
+      );
 }
