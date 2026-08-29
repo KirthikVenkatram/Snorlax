@@ -1,13 +1,18 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../features/auth/data/user_profile_repository.dart';
 import '../../features/auth/domain/app_user.dart';
 import '../../features/auth/presentation/auth_providers.dart';
 import '../../features/auth/presentation/onboarding_screen.dart';
 import '../../features/auth/presentation/sign_in_screen.dart';
+import '../../features/body_composition/presentation/body_composition_providers.dart';
+import '../../features/body_composition/presentation/body_composition_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
+import '../../features/goals/presentation/goal_providers.dart';
+import '../../features/goals/presentation/goals_screen.dart';
 import '../../features/nutrition/presentation/nutrition_home_screen.dart';
 import '../../features/nutrition/presentation/nutrition_providers.dart';
 import '../../features/strava/presentation/strava_providers.dart';
@@ -104,6 +109,59 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             nutritionRepository: ref.read(nutritionRepositoryProvider),
             searchService: ref.read(foodSearchServiceProvider),
             userProfileRepository: ref.read(userProfileRepositoryProvider),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/goals',
+        builder: (context, state) {
+          final uid = ref.read(firebaseAuthProvider).currentUser!.uid;
+          return GoalsScreen(
+            uid: uid,
+            repository: ref.read(goalRepositoryProvider),
+            onChanged: () {},
+          );
+        },
+      ),
+      GoRoute(
+        path: '/body',
+        builder: (context, state) {
+          final uid = ref.read(firebaseAuthProvider).currentUser!.uid;
+          // BodyCompositionScreen needs the current profile for sex/height.
+          // The router's redirect above already guarantees onboarding is
+          // complete (and thus a profile exists) before reaching an
+          // authenticated route like this one, so a missing profile here
+          // should be unreachable in practice — but fetch defensively and
+          // show a clear fallback instead of crashing if it somehow occurs.
+          return FutureBuilder<UserProfile?>(
+            future: profileRepository.getProfile(uid),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const Scaffold(body: Center(child: CircularProgressIndicator()));
+              }
+              final profile = snapshot.data;
+              if (profile == null) {
+                return Scaffold(
+                  appBar: AppBar(title: const Text('Body composition')),
+                  body: const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Text(
+                        'We could not find your profile. Please complete onboarding '
+                        'before tracking body composition.',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+                );
+              }
+              return BodyCompositionScreen(
+                uid: uid,
+                profile: profile,
+                repository: ref.read(bodyCompositionRepositoryProvider),
+                onChanged: () {},
+              );
+            },
           );
         },
       ),

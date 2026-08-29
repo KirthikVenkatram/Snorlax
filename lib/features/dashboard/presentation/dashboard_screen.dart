@@ -54,6 +54,38 @@ class DashboardScreen extends StatelessWidget {
                   ],
                 ),
               ),
+              const SizedBox(height: 16),
+              GlassCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Body composition', style: Theme.of(context).textTheme.headlineMedium),
+                    const SizedBox(height: 8),
+                    const Text('Log check-ins and view body-fat and lean-mass estimates.'),
+                    const SizedBox(height: 16),
+                    PrimaryButton(
+                      label: 'Open body composition',
+                      onPressed: () => GoRouter.of(context).push('/body'),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              GlassCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Goals', style: Theme.of(context).textTheme.headlineMedium),
+                    const SizedBox(height: 8),
+                    const Text('Set and track physique, performance, and primary goals.'),
+                    const SizedBox(height: 16),
+                    PrimaryButton(
+                      label: 'Open goals',
+                      onPressed: () => GoRouter.of(context).push('/goals'),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),

@@ -7,7 +7,7 @@ Personal-use Flutter fitness tracker. Target: fully working on the author's own 
 - **Phase 1 — Foundation**: done. Auth, dashboard shell, onboarding, design system.
 - **Phase 2 — Workouts**: done. Manual strength/general workout logging, exercise library, progress charts, Strava OAuth + webhook cardio sync. Strava live verification (OAuth flow, webhook delivery) is on hold — Strava now requires a paid developer subscription to register an API app, and the decision was made to defer that spend indefinitely rather than a technical blocker.
 - **Phase 3 — Nutrition**: implemented. Food logging, daily calorie/macro goals, custom foods, multi-source food search, natural-language logging, and entry editing.
-- **Phase 4 — Body Composition + Goals**: planned. Historical measurements, deterministic body-composition estimates, trends, and hierarchical goals.
+- **Phase 4 — Body Composition + Goals**: implemented. Historical measurements, deterministic body-composition estimates, trends, and hierarchical goals.
 - **Phase 5 — Habits + Adherence**: planned. Habits, checklists, supportive adherence trends, and configurable component weights.
 - **Phase 6 — Readiness + Recovery**: planned. Lightweight deterministic readiness inputs and non-medical training guidance.
 - **Phase 7 — AI Coach**: planned. Versioned context, structured recommendations, deterministic validation, user approval, and auditable events.
