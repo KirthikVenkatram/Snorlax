@@ -13,7 +13,9 @@ function buildPrompt(context: CoachContext): string {
     'respond with ONLY a JSON object with keys "summary" (a short string), ' +
     '"rationale" (a string explaining your reasoning), and "proposedCommand" ' +
     '(either null for advice-only, or an object with a "type" field of ' +
-    '"nutritionTargetChange", "goalChange", "habitChange", or "workoutChange" ' +
+    '"nutritionTargetChange", "goalChange", "habitChange", "workoutChange", or ' +
+    '"mealPlanChange" (a budget/template-aware proposed meal plan, using only ' +
+    'template ids and servings already present in the user summary) ' +
     'and the relevant fields for that type). Do not include any other text.\n\n' +
     `User summary: ${JSON.stringify(context)}`
   );

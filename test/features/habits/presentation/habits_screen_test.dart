@@ -22,6 +22,34 @@ void main() {
     expect(find.text('Drink water'), findsOneWidget);
   });
 
+  testWidgets(
+      'two rapid Save-button taps do not create two habits that collide on id '
+      '(review fix: auto-ID + in-flight debounce, not a timestamp-derived id)',
+      (tester) async {
+    final repository = HabitRepository(firestore: FakeFirebaseFirestore());
+
+    await tester.pumpWidget(
+      MaterialApp(home: HabitsScreen(uid: 'u', repository: repository, onChanged: () {})),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('habitNameField')), 'Drink water');
+
+    // Tap Save once, then pump just enough for the synchronous part of
+    // `_createHabit` to run (setting `_creatingHabit = true` and disabling
+    // the button) but *not* for the underlying Firestore write to finish.
+    // A second tap on the now-disabled button must be a no-op, simulating a
+    // rapid double-tap landing before the first create resolves.
+    await tester.tap(find.text('Save habit'));
+    await tester.pump();
+    await tester.tap(find.text('Save habit'));
+    await tester.pumpAndSettle();
+
+    final habits = await repository.listHabits('u');
+    expect(habits, hasLength(1));
+    expect(habits.single.name, 'Drink water');
+  });
+
   testWidgets('completing a habit updates its status label', (tester) async {
     final repository = HabitRepository(firestore: FakeFirebaseFirestore());
     await repository.createHabit(

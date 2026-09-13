@@ -322,6 +322,31 @@ describe('validateCommand — mealPlanChange', () => {
     expect(validateCommand(command, fixtureContext()).result).toBe('requireApproval');
   });
 
+  it('falls back to monthlyLimit/30 for a daily proposal when dailyLimit is not set (review fix: no silent skip of budget enforcement)', () => {
+    const context = fixtureContext({
+      mealPlanning: {
+        // Only monthlyLimit is configured — dailyLimit and weeklyLimit are
+        // both null. Repeating this proposal daily would blow well past a
+        // 300/month budget, so it must not be silently allowed through.
+        budget: { currency: 'USD', dailyLimit: null, weeklyLimit: null, monthlyLimit: 300 },
+        templates: [
+          { id: 't1', name: 'Chicken and rice', costPerServing: 20, caloriesPerServing: 550, proteinGPerServing: 45 },
+        ],
+      },
+    });
+    const command: ProposedMealPlanChange = {
+      type: 'mealPlanChange',
+      planId: null,
+      name: 'Blows the monthly budget if repeated daily',
+      periodType: 'daily',
+      // 1 * 20 = 20/day > 300/30 = 10/day effective daily ceiling.
+      items: [{ templateId: 't1', servings: 1 }],
+    };
+    const result = validateCommand(command, context);
+    expect(result.result).not.toBe('allow');
+    expect(result.result).toBe('reject');
+  });
+
   it('does not reject on missing budget settings — a proposal with no budget configured still requires approval', () => {
     const context = fixtureContext({ mealPlanning: { budget: null, templates: fixtureContext().mealPlanning.templates } });
     const command: ProposedMealPlanChange = {

@@ -68,6 +68,20 @@ void main() {
       expect(id, 'new-id');
     });
 
+    test(
+        'generateMealPlanRecommendation calls the generateMealPlanRecommendation callable and returns the new id '
+        '(review fix: this seam was previously unreachable from the app)', () async {
+      final callable = MockHttpsCallable();
+      final result = MockHttpsCallableResult<Map<String, dynamic>>();
+      when(() => functions.httpsCallable('generateMealPlanRecommendation')).thenReturn(callable);
+      when(() => callable.call<Map<String, dynamic>>()).thenAnswer((_) async => result);
+      when(() => result.data).thenReturn({'id': 'meal-plan-rec-id'});
+
+      final id = await service.generateMealPlanRecommendation();
+
+      expect(id, 'meal-plan-rec-id');
+    });
+
     test('submitDecision calls handleCommand with the recommendation id and decision', () async {
       final callable = MockHttpsCallable();
       final result = MockHttpsCallableResult<Map<String, dynamic>>();

@@ -45,6 +45,19 @@ class CoachService {
     return response.data['id'] as String;
   }
 
+  /// Calls the `generateMealPlanRecommendation` callable, which builds a
+  /// budget/template-focused server-side context and asks the AI provider
+  /// for a `mealPlanChange` proposal specifically (as opposed to
+  /// [generateRecommendation]'s general-purpose prompt). Returns the new
+  /// recommendation id — same `coachRecommendations` collection, same
+  /// review/accept/reject flow via [submitDecision], as any other
+  /// recommendation.
+  Future<String> generateMealPlanRecommendation() async {
+    final callable = _functions.httpsCallable('generateMealPlanRecommendation');
+    final response = await callable.call<Map<String, dynamic>>();
+    return response.data['id'] as String;
+  }
+
   /// Calls the `handleCommand` callable with the user's decision. The
   /// server re-validates the proposed command from scratch before applying
   /// anything — this call never mutates protected data directly itself.

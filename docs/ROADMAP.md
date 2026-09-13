@@ -12,6 +12,17 @@ Personal-use Flutter fitness tracker. Target: fully working on the author's own 
 - **Phase 6 — Readiness + Recovery**: implemented. Daily self-reported readiness check-ins, a deterministic non-medical green/yellow/red result with hard safety overrides (pain/injury, extreme sleep deprivation + high soreness), and the readiness score now wired into the adherence recovery component.
 - **Phase 7 — AI Coach**: implemented, not deployed. Versioned `CoachContext`, an `AiProvider` seam over the existing Groq/NIM client, schema-validated structured recommendations, a pure/independently-tested `validateCommand` safety layer, an approval-gated `handleCommand` that re-validates from scratch before any write, and auditable `coachEvents`. "Not deployed" because the new Cloud Functions (`generateRecommendation`, `handleCommand`) and updated `firestore.rules` need a manual `firebase deploy` the user must run — no deploy was executed as part of this work.
 - **Phase 8 — Budget-Aware Meal Planning**: implemented, not deployed. Budget settings, price snapshots (manual working now; a live-provider interface exists but is intentionally a stubbed "unavailable" implementation, no real Blinkit/Zepto integration), reusable meal templates, and cost/nutrition-aware meal plans, all behind a pure/independently-tested `MealPlanCalculator` (cost per meal, daily/weekly/monthly projection, protein-per-currency-unit). Closes the Phase 7 `generateMealPlanProposal` stub: a new `generateMealPlanRecommendation` Cloud Function builds a real budget/template-grounded prompt, and a `ProposedMealPlanChange` command type is validated by `coach/validateCommand.ts` (budget-ceiling check, unknown-template rejection, sanity bounds on servings/item count) and applied only through the existing `handleCommand` approve/reject flow — the AI never calculates or persists cost directly. "Not deployed" for the same reason as Phase 7: the new/changed Cloud Functions (`generateMealPlanRecommendation`, extended `handleCommand`/`validateCommand`) and updated `firestore.rules` need a manual `firebase deploy` the user must run — no deploy was executed as part of this work.
+- **Consolidated review fix pass (Phases 5-8)**: done. Phases 5-8 were
+  fast-tracked without per-task review gates; a full-diff code review
+  afterward found 6 real correctness bugs (budget-ceiling fallback gap in
+  `validateMealPlanChange`, historical adherence scoring using today's
+  habit list, no not-found handling in `handleCommand`'s apply path,
+  collision-prone habit id generation, and the AI meal-plan-proposal
+  feature being unreachable from both the app and the general
+  recommendation prompt). All 6 are fixed with regression tests; see
+  `docs/superpowers/ISSUES.md`, "Consolidated review fix pass" for details.
+  Full `flutter test`/`flutter analyze` and functions `jest`/`tsc --noEmit`
+  suites pass with zero regressions. Phases 5-8 are ready for Phase 9.
 - **Phase 9 — Personal-use polish**: planned. Dashboard integration, profile/settings, app icon/splash screen, release build, and Crashlytics.
 
 ## Explicitly out of scope

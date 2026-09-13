@@ -225,6 +225,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             budgetRepository: ref.read(budgetRepositoryProvider),
             templateRepository: ref.read(mealTemplateRepositoryProvider),
             planRepository: ref.read(mealPlanRepositoryProvider),
+            coachService: ref.read(coachServiceProvider),
           );
         },
       ),

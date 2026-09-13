@@ -8,7 +8,7 @@ import { computeMealPlanCost } from './mealPlanCost';
 
 export type CoachDecision = 'approve' | 'reject';
 
-export type CoachEventOutcome = 'applied' | 'rejectedByUser' | 'rejectedByValidation';
+export type CoachEventOutcome = 'applied' | 'rejectedByUser' | 'rejectedByValidation' | 'failed';
 
 export interface HandleCommandResult {
   outcome: CoachEventOutcome;
@@ -194,7 +194,36 @@ export async function handleCommandHandler(
 
   // 'allow' or 'requireApproval': the user's explicit 'approve' decision
   // satisfies the approval requirement in both cases.
-  await applyCommand(db, uid, command, freshContext);
+  //
+  // The target document (a goal/habit/meal plan being *updated*, i.e. an
+  // update-path command with a non-null id) may have been deleted between
+  // when the recommendation was generated and now — the real Admin SDK's
+  // `.update()` throws NOT_FOUND in that case (see `adminFirestore.ts`).
+  // Catch that here rather than letting it propagate past the audit-write:
+  // a deleted target is a legitimate, expected race, not a 500.
+  try {
+    await applyCommand(db, uid, command, freshContext);
+  } catch (error) {
+    const outcome: CoachEventOutcome = 'failed';
+    const reason = `Could not apply command: its target document no longer exists (${
+      error instanceof Error ? error.message : String(error)
+    }).`;
+    await db.setDoc(`${base}/coachEvents/${eventId}`, {
+      recommendationId,
+      command,
+      decision,
+      outcome,
+      reason,
+      createdAt: new Date().toISOString(),
+    });
+    // RecommendationStatus on the client only knows pending/accepted/
+    // rejected (see lib/features/coach/domain/coach_recommendation.dart) —
+    // 'rejected' is the closest accurate status for "this can no longer be
+    // applied"; the coachEvents outcome ('failed') is what distinguishes
+    // this case from a user- or validation-rejection for anyone auditing.
+    await db.updateDoc(`${base}/coachRecommendations/${recommendationId}`, { status: 'rejected' });
+    return { outcome, reason };
+  }
 
   const outcome: CoachEventOutcome = 'applied';
   await db.setDoc(`${base}/coachEvents/${eventId}`, {

@@ -58,6 +58,18 @@ describe('generateRecommendationHandler', () => {
     expect(Object.keys(db.dump())).toHaveLength(0);
   });
 
+  it('tells the model mealPlanChange is a valid proposedCommand type (review fix: buildPrompt previously omitted it)', async () => {
+    const db = createFakeCoachFirestore();
+    const provider = fakeProvider(
+      JSON.stringify({ summary: 'ok', rationale: 'ok', proposedCommand: null }),
+    );
+
+    await generateRecommendationHandler('u1', db, provider);
+
+    const promptArg = (provider.generateCoachRecommendation as jest.Mock).mock.calls[0][0] as string;
+    expect(promptArg).toContain('mealPlanChange');
+  });
+
   it('never writes a recommendation when proposedCommand has an invalid shape', async () => {
     const db = createFakeCoachFirestore();
     const provider = fakeProvider(

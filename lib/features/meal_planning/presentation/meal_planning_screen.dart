@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/calculations/meal_plan_calculator.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/glass_card.dart';
 import '../../../core/widgets/primary_button.dart';
+import '../../coach/data/coach_service.dart';
 import '../data/budget_repository.dart';
 import '../data/meal_plan_repository.dart';
 import '../data/meal_template_repository.dart';
@@ -28,12 +30,19 @@ class MealPlanningScreen extends StatefulWidget {
     required this.budgetRepository,
     required this.templateRepository,
     required this.planRepository,
+    required this.coachService,
   });
 
   final String uid;
   final BudgetRepository budgetRepository;
   final MealTemplateRepository templateRepository;
   final MealPlanRepository planRepository;
+
+  /// Used only by the "Ask coach to propose a plan" action, which calls
+  /// `CoachService.generateMealPlanRecommendation` and then hands the user
+  /// off to `/coach` to review/accept/reject it — this screen never writes
+  /// an AI-proposed plan directly.
+  final CoachService coachService;
 
   @override
   State<MealPlanningScreen> createState() => _MealPlanningScreenState();
@@ -44,6 +53,7 @@ class _MealPlanningScreenState extends State<MealPlanningScreen> {
   List<MealTemplate> _templates = [];
   List<MealPlan> _plans = [];
   bool _loading = true;
+  bool _askingCoach = false;
   String? _error;
 
   @override
@@ -114,6 +124,24 @@ class _MealPlanningScreenState extends State<MealPlanningScreen> {
     await _load();
   }
 
+  /// Calls `generateMealPlanRecommendation` and, on success, hands off to
+  /// `/coach` where the resulting proposal is reviewed and accepted/
+  /// rejected — this screen never persists an AI-proposed plan itself; the
+  /// coach `handleCommand` approve flow is the only path that does.
+  Future<void> _askCoach() async {
+    setState(() => _askingCoach = true);
+    try {
+      await widget.coachService.generateMealPlanRecommendation();
+      if (!mounted) return;
+      GoRouter.of(context).push('/coach');
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = 'Could not ask the coach for a meal plan: $error');
+    } finally {
+      if (mounted) setState(() => _askingCoach = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -146,6 +174,11 @@ class _MealPlanningScreenState extends State<MealPlanningScreen> {
                           ),
                           const SizedBox(height: 12),
                           PrimaryButton(label: 'Build a plan', onPressed: _buildPlan),
+                          const SizedBox(height: 8),
+                          PrimaryButton(
+                            label: 'Ask coach to propose a plan',
+                            onPressed: _askingCoach ? null : _askCoach,
+                          ),
                         ],
                       ),
                     ),

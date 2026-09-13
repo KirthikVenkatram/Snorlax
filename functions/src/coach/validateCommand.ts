@@ -1,4 +1,4 @@
-import { CoachContext } from './buildCoachContext';
+import { BudgetSummary, CoachContext } from './buildCoachContext';
 import {
   ProposedCommand,
   ProposedGoalChange,
@@ -121,6 +121,40 @@ const MAX_SERVINGS_PER_ITEM = 20;
 /** Sanity bound: a plan may not propose an implausible number of line items. */
 const MAX_ITEMS_PER_PLAN = 40;
 
+/**
+ * Number of weeks in an average month, used only to derive a fallback daily/
+ * weekly ceiling from a configured `monthlyLimit` when the more specific
+ * limit isn't set. Matches the divisor used elsewhere for month <-> week
+ * projections (`MealPlanCalculator.projectMonthlyCost`'s inverse).
+ */
+const WEEKS_PER_MONTH = 4.33;
+
+/**
+ * Resolves the budget ceiling that applies to a proposal of the given
+ * `periodType`, falling back to a derived ceiling from a broader configured
+ * limit rather than skipping enforcement entirely when the exact-period
+ * limit isn't set. Preference order goes from most to least specific to the
+ * requested period:
+ * - `daily`: dailyLimit -> weeklyLimit / 7 -> monthlyLimit / 30
+ * - `weekly`: weeklyLimit -> dailyLimit * 7 -> monthlyLimit / WEEKS_PER_MONTH
+ *
+ * Without this fallback, a user who only configured (say) a `monthlyLimit`
+ * would get zero budget enforcement on daily/weekly proposals even though
+ * they have a real, if less granular, budget constraint.
+ */
+function effectiveBudgetCeiling(periodType: 'daily' | 'weekly', budget: BudgetSummary): number | null {
+  if (periodType === 'daily') {
+    if (budget.dailyLimit !== null) return budget.dailyLimit;
+    if (budget.weeklyLimit !== null) return budget.weeklyLimit / 7;
+    if (budget.monthlyLimit !== null) return budget.monthlyLimit / 30;
+    return null;
+  }
+  if (budget.weeklyLimit !== null) return budget.weeklyLimit;
+  if (budget.dailyLimit !== null) return budget.dailyLimit * 7;
+  if (budget.monthlyLimit !== null) return budget.monthlyLimit / WEEKS_PER_MONTH;
+  return null;
+}
+
 function validateMealPlanChange(command: ProposedMealPlanChange, context: CoachContext): CommandValidation {
   if (command.items.length === 0) {
     return { result: 'reject', reason: 'A meal plan proposal must include at least one item.' };
@@ -153,7 +187,7 @@ function validateMealPlanChange(command: ProposedMealPlanChange, context: CoachC
 
   const budget = context.mealPlanning.budget;
   if (budget !== null && costResult.totalCost !== null) {
-    const ceiling = command.periodType === 'daily' ? budget.dailyLimit : budget.weeklyLimit ?? (budget.dailyLimit !== null ? budget.dailyLimit * 7 : null);
+    const ceiling = effectiveBudgetCeiling(command.periodType, budget);
     if (ceiling !== null && costResult.totalCost > ceiling) {
       return {
         result: 'reject',

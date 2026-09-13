@@ -164,7 +164,15 @@ class AdherenceRepository {
   }
 
   Future<ComponentInput> _habitsComponent(String uid, DateTime day) async {
-    final habits = await _habitRepository.listHabits(uid);
+    // Only count habits that actually existed as of [day] — `listHabits`
+    // returns today's full active habit list, so without this filter,
+    // creating a habit today would retroactively lower past days' scores
+    // (the habit would be counted as "not completed" on days before it
+    // existed). `Habit.archived` has no `archivedAt` timestamp to compare
+    // against (see docs/superpowers/ISSUES.md), so archived-habit history
+    // isn't reconstructed here — only the createdAt floor is enforced.
+    final allHabits = await _habitRepository.listHabits(uid);
+    final habits = allHabits.where((habit) => !_isAfter(habit.createdAt, day)).toList();
     if (habits.isEmpty) return const ComponentInput.excluded();
 
     final completion = await _habitRepository.getCompletion(uid, day);
@@ -188,4 +196,13 @@ class AdherenceRepository {
   }
 
   bool _isSameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
+
+  /// True if [a]'s calendar day is strictly after [b]'s calendar day
+  /// (ignoring time-of-day), used to check whether a habit was created
+  /// after the day being scored.
+  bool _isAfter(DateTime a, DateTime b) {
+    final aDay = DateTime(a.year, a.month, a.day);
+    final bDay = DateTime(b.year, b.month, b.day);
+    return aDay.isAfter(bDay);
+  }
 }

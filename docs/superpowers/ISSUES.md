@@ -8,6 +8,86 @@ Each entry: phase, what's wrong/deferred, why, suggested fix.
 
 ---
 
+## Consolidated review fix pass (before Phase 9)
+
+A code-review pass ran against the full `Phase 5-8` diff and found 6 real
+correctness bugs (as opposed to the judgment calls/gaps already logged
+below). All 6 are fixed, each with a regression test that would have caught
+the original bug:
+
+1. **`validateMealPlanChange`'s budget-ceiling check had no fallback when
+   the period-matching limit was null.** A `daily` proposal only ever
+   checked `budgetSettings.dailyLimit`, so a user with only `weeklyLimit`/
+   `monthlyLimit` configured got zero enforcement on daily proposals. Fixed
+   via a new `effectiveBudgetCeiling` helper in
+   `functions/src/coach/validateCommand.ts` that derives a fallback ceiling
+   from the next-broader configured limit (`weeklyLimit/7` or
+   `monthlyLimit/30` for `daily`; `dailyLimit*7` or `monthlyLimit/4.33` for
+   `weekly`) instead of skipping the check. Test:
+   `validateCommand.test.ts`, "falls back to monthlyLimit/30 for a daily
+   proposal when dailyLimit is not set".
+
+2. **`AdherenceRepository._habitsComponent` scored historical days against
+   today's full habit list**, so creating a habit today retroactively
+   lowered past days' scores. Fixed by filtering to habits whose
+   `createdAt` is on or before the day being scored, in
+   `lib/features/adherence/data/adherence_repository.dart`. (`Habit` has no
+   `archivedAt`, so archived-habit history isn't reconstructed — only the
+   `createdAt` floor is enforced.) Test:
+   `adherence_repository_test.dart`, "a habit created today does not
+   retroactively affect the habits component score for a past day".
+
+3. **`handleCommand.ts`'s `applyCommand` update path had no
+   existence/not-found handling**, so a goal/habit/meal-plan deleted
+   between recommendation generation and approval would throw past the
+   audit-write, surfacing as an opaque 500 with no `coachEvents` record.
+   Fixed by wrapping the `applyCommand` call in `handleCommandHandler` in a
+   try/catch that writes a `coachEvents` record with a new `'failed'`
+   outcome and sets the recommendation to `'rejected'` instead of letting
+   the exception propagate. `fakeCoachFirestoreForTests.ts` gained an
+   opt-in `strictUpdate` option so a test can mirror the real Admin SDK's
+   NOT_FOUND-on-missing-doc behavior. Test: `handleCommand.test.ts`,
+   "gracefully fails with a coachEvents audit record...".
+
+4. **New habit ids in `HabitsScreen` were generated from
+   `DateTime.now().microsecondsSinceEpoch`**, millisecond-resolution on
+   Flutter Web, so two rapid Save taps could collide and silently overwrite
+   each other via `.set()`. Fixed by adding `HabitRepository.newHabitId`
+   (Firestore's own auto-ID via `collection.doc().id`, matching the
+   `collection.doc()`-then-`.set()` convention used elsewhere, e.g.
+   `NutritionRepository.logFood`/`WorkoutRepository`) and disabling the
+   Save button while a create is in flight. Test: `habits_screen_test.dart`,
+   "two rapid Save-button taps do not create two habits that collide on
+   id".
+
+5 & 6. **The Phase 8 AI meal-plan-proposal feature was unreachable from the
+   app, and unreachable from the general recommendation flow too.**
+   `CoachService` never called the `generateMealPlanRecommendation`
+   callable (item 5), and separately `generateRecommendation.ts`'s
+   `buildPrompt` only listed 4 of 5 valid `proposedCommand` types, omitting
+   `mealPlanChange` (item 6). Fixed by adding
+   `CoachService.generateMealPlanRecommendation()` and an "Ask coach to
+   propose a plan" button on `MealPlanningScreen` that calls it and
+   navigates to `/coach` to review the result, and by adding
+   `mealPlanChange` to `buildPrompt`'s type list. Tests:
+   `coach_service_test.dart` ("generateMealPlanRecommendation calls..."),
+   `meal_planning_screen_test.dart` (new file — button wiring end to end
+   against a mocked callable), and `generateRecommendation.test.ts`
+   ("tells the model mealPlanChange is a valid proposedCommand type").
+
+Four other findings from the same review pass were judged accepted
+tradeoffs, not bugs, and were left as-is (see their existing entries below
+for the full reasoning): the N+1 full-collection reads and sequential
+awaits in `adherence_repository.dart` (Phase 5 area, performance-only); the
+`GoalRepository`/`validateCommand.ts` one-active-primary-goal asymmetry
+(Phase 7 item 6); and the 3x-duplicated `coachEvents` audit-record
+construction in `handleCommand.ts` (style/DRY, not extracted — the new
+try/catch block in fix #3 above added a 4th near-duplicate site, but
+refactoring all of them was judged out of scope for this pass per the
+original triage).
+
+---
+
 ## Phase 5 — Habits + Adherence
 
 1. **CLOSED in Phase 6.** Recovery component is always excluded (neutral), not scored.

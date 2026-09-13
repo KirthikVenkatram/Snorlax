@@ -16,6 +16,15 @@ class HabitRepository {
   CollectionReference<Map<String, dynamic>> _completions(String uid) =>
       _firestore.collection('users').doc(uid).collection('habitCompletions');
 
+  /// Reserves a new habit document id via Firestore's own auto-ID
+  /// generator, matching the convention used elsewhere in this repo (e.g.
+  /// `NutritionRepository.logFood`, `WorkoutRepository`) — `collection.doc()`
+  /// with no argument allocates a globally-unique id client-side without a
+  /// round-trip, and is not vulnerable to the millisecond-resolution
+  /// collision a `DateTime.now().microsecondsSinceEpoch`-derived id has on
+  /// Flutter Web (see docs/superpowers/ISSUES.md, consolidated review pass).
+  String newHabitId(String uid) => _habits(uid).doc().id;
+
   Future<String> createHabit(String uid, Habit habit) async {
     Habit.validate(cadence: habit.cadence, timesPerWeek: habit.timesPerWeek);
     final doc = _habits(uid).doc(habit.id);

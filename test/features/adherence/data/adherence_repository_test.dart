@@ -199,6 +199,50 @@ void main() {
     expect(summary.componentScores[AdherenceComponent.habits], closeTo(0.5, 1e-9));
   });
 
+  test('a habit created today does not retroactively affect the habits component score for a past day', () async {
+    final firestore = FakeFirebaseFirestore();
+    final habitRepository = HabitRepository(firestore: firestore);
+    // A habit that already existed on `day` and `day - 1`.
+    await habitRepository.createHabit(
+      'u',
+      Habit(id: 'h1', name: 'Water', cadence: HabitCadence.daily, createdAt: day.subtract(const Duration(days: 2))),
+    );
+    await habitRepository.completeHabit('u', day.subtract(const Duration(days: 1)), 'h1', completed: true);
+    await habitRepository.completeHabit('u', day, 'h1', completed: true);
+
+    final repository = AdherenceRepository(
+      firestore: firestore,
+      nutritionRepository: NutritionRepository(firestore: firestore),
+      workoutRepository: WorkoutRepository(firestore: firestore),
+      habitRepository: habitRepository,
+    );
+
+    // Both past days score 1.0 with just h1 completed.
+    final before = await repository.computeAndCacheDaily('u', day.subtract(const Duration(days: 1)));
+    expect(before.componentScores[AdherenceComponent.habits], closeTo(1.0, 1e-9));
+    final today = await repository.computeAndCacheDaily('u', day);
+    expect(today.componentScores[AdherenceComponent.habits], closeTo(1.0, 1e-9));
+
+    // Now a brand-new habit is created "today" (createdAt = day) and never
+    // marked completed for the two prior days (it didn't exist then).
+    await habitRepository.createHabit(
+      'u',
+      Habit(id: 'h2', name: 'New habit', cadence: HabitCadence.daily, createdAt: day),
+    );
+
+    // Re-scoring the prior days must be unaffected by h2's existence: h2
+    // didn't exist on day-1 or day-2, so it must not count as an
+    // uncompleted habit there and drag the score down.
+    final beforeAfterCreate =
+        await repository.computeAndCacheDaily('u', day.subtract(const Duration(days: 1)));
+    expect(beforeAfterCreate.componentScores[AdherenceComponent.habits], closeTo(1.0, 1e-9));
+
+    // "Today" (day == h2.createdAt) does include h2 in the denominator,
+    // uncompleted, dragging the score down to 0.5.
+    final todayAfterCreate = await repository.computeAndCacheDaily('u', day);
+    expect(todayAfterCreate.componentScores[AdherenceComponent.habits], closeTo(0.5, 1e-9));
+  });
+
   test('getDaily reads back a cached summary', () async {
     final firestore = FakeFirebaseFirestore();
     final repository = _repo(firestore);

@@ -30,6 +30,15 @@ class _HabitsScreenState extends State<HabitsScreen> {
   HabitCompletion? _todayCompletion;
   bool _loading = true;
 
+  /// True while a create is in flight. Guards against two rapid Save-button
+  /// taps racing each other — without this, a second tap before the first
+  /// `createHabit` awaits could (previously) also collide on a
+  /// timestamp-derived id; now that ids come from Firestore's own auto-ID
+  /// generator that specific collision can't happen, but disabling the
+  /// button while a write is in flight is still the correct UX and a cheap
+  /// extra safeguard against duplicate submissions in general.
+  bool _creatingHabit = false;
+
   DateTime get _today {
     final now = DateTime.now();
     return DateTime(now.year, now.month, now.day);
@@ -59,11 +68,14 @@ class _HabitsScreenState extends State<HabitsScreen> {
   }
 
   Future<void> _createHabit() async {
+    if (_creatingHabit) return; // debounce: a create is already in flight.
     final name = _nameController.text.trim();
     if (name.isEmpty) return;
 
+    setState(() => _creatingHabit = true);
+
     final habit = Habit(
-      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      id: widget.repository.newHabitId(widget.uid),
       name: name,
       cadence: _cadence,
       timesPerWeek: _cadence == HabitCadence.weekly ? _timesPerWeek : null,
@@ -75,8 +87,12 @@ class _HabitsScreenState extends State<HabitsScreen> {
       _nameController.clear();
     });
 
-    await widget.repository.createHabit(widget.uid, habit);
-    widget.onChanged();
+    try {
+      await widget.repository.createHabit(widget.uid, habit);
+      widget.onChanged();
+    } finally {
+      if (mounted) setState(() => _creatingHabit = false);
+    }
   }
 
   Future<void> _setStatus(
@@ -205,7 +221,10 @@ class _HabitsScreenState extends State<HabitsScreen> {
                           ),
                         ],
                         const SizedBox(height: 24),
-                        PrimaryButton(label: 'Save habit', onPressed: _createHabit),
+                        PrimaryButton(
+                          label: 'Save habit',
+                          onPressed: _creatingHabit ? null : _createHabit,
+                        ),
                       ],
                     ),
                   ),

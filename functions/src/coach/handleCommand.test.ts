@@ -1,6 +1,47 @@
 import { handleCommandHandler } from './handleCommand';
 import { createFakeCoachFirestore } from './fakeCoachFirestoreForTests';
 
+describe('handleCommandHandler — target deleted between recommendation and approval (review fix)', () => {
+  it('gracefully fails with a coachEvents audit record, instead of throwing, when the update target no longer exists', async () => {
+    // Mirrors the real Admin SDK: `.update()` on a missing doc throws
+    // NOT_FOUND (see adminFirestore.ts) rather than silently upserting like
+    // the lenient default fake does.
+    const db = createFakeCoachFirestore(
+      {
+        'users/u1/coachRecommendations/r1': {
+          proposedCommand: {
+            type: 'goalChange',
+            goalId: 'goal-that-was-deleted',
+            name: 'Updated goal',
+            category: 'physique',
+            status: 'active',
+            priority: 1,
+            targetValue: null,
+            unit: null,
+          },
+          status: 'pending',
+        },
+        // Note: no `users/u1/goals/goal-that-was-deleted` doc seeded — it
+        // was deleted after the recommendation was generated but before the
+        // user approved it.
+      },
+      { strictUpdate: true },
+    );
+
+    const result = await handleCommandHandler('u1', 'r1', 'approve', db);
+
+    expect(result.outcome).toBe('failed');
+    expect(result.reason).toMatch(/no longer exists/);
+
+    const events = await db.getCollection('users/u1/coachEvents');
+    expect(events).toHaveLength(1);
+    expect(events[0].data).toMatchObject({ recommendationId: 'r1', outcome: 'failed', decision: 'approve' });
+
+    const rec = await db.getDoc('users/u1/coachRecommendations/r1');
+    expect(rec?.status).toBe('rejected');
+  });
+});
+
 describe('handleCommandHandler', () => {
   it('applies an allowed nutritionTargetChange on approval and writes an audit event', async () => {
     const db = createFakeCoachFirestore({
