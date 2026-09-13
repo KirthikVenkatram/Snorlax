@@ -1,0 +1,159 @@
+import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:fitness_tracker/core/calculations/adherence_calculator.dart';
+import 'package:fitness_tracker/features/adherence/data/adherence_repository.dart';
+import 'package:fitness_tracker/features/habits/data/habit_repository.dart';
+import 'package:fitness_tracker/features/habits/domain/habit.dart';
+import 'package:fitness_tracker/features/habits/domain/habit_completion.dart';
+import 'package:fitness_tracker/features/nutrition/data/nutrition_repository.dart';
+import 'package:fitness_tracker/features/nutrition/domain/food_entry.dart';
+import 'package:fitness_tracker/features/workouts/data/workout_repository.dart';
+
+AdherenceRepository _repo(FakeFirebaseFirestore firestore) => AdherenceRepository(
+      firestore: firestore,
+      nutritionRepository: NutritionRepository(firestore: firestore),
+      workoutRepository: WorkoutRepository(firestore: firestore),
+      habitRepository: HabitRepository(firestore: firestore),
+    );
+
+void main() {
+  final day = DateTime(2026, 9, 10);
+
+  test('weights default to the spec values and are persisted when set', () async {
+    final firestore = FakeFirebaseFirestore();
+    final repository = _repo(firestore);
+
+    final defaults = await repository.getWeights('u');
+    expect(defaults.nutrition, 0.40);
+    expect(defaults.training, 0.25);
+    expect(defaults.habits, 0.20);
+    expect(defaults.recovery, 0.15);
+
+    await repository.setWeights('u', const AdherenceWeights(nutrition: 0.5, training: 0.2, habits: 0.2, recovery: 0.1));
+    final updated = await repository.getWeights('u');
+    expect(updated.nutrition, 0.5);
+  });
+
+  test('computeAndCacheDaily excludes nutrition when no goal is set and no entries logged', () async {
+    final firestore = FakeFirebaseFirestore();
+    final repository = _repo(firestore);
+
+    final summary = await repository.computeAndCacheDaily('u', day);
+
+    expect(summary.excludedComponents, contains(AdherenceComponent.nutrition));
+    expect(summary.excludedComponents, contains(AdherenceComponent.recovery));
+  });
+
+  test('computeAndCacheDaily scores nutrition against the goal and logged entries', () async {
+    final firestore = FakeFirebaseFirestore();
+    final nutritionRepository = NutritionRepository(firestore: firestore);
+    await nutritionRepository.setGoals(
+      'u',
+      const NutritionGoals(dailyCalories: 2000, proteinG: 150, carbsG: 200, fatG: 60),
+    );
+    await nutritionRepository.logFood(
+      uid: 'u',
+      date: day,
+      mealType: MealType.lunch,
+      foodName: 'Chicken bowl',
+      quantityGrams: 400,
+      calories: 2000,
+      proteinG: 150,
+      carbsG: 200,
+      fatG: 60,
+      source: FoodSource.custom,
+    );
+
+    final repository = AdherenceRepository(
+      firestore: firestore,
+      nutritionRepository: nutritionRepository,
+      workoutRepository: WorkoutRepository(firestore: firestore),
+      habitRepository: HabitRepository(firestore: firestore),
+    );
+
+    final summary = await repository.computeAndCacheDaily('u', day);
+
+    expect(summary.componentScores[AdherenceComponent.nutrition], closeTo(1.0, 1e-9));
+  });
+
+  test('computeAndCacheDaily scores training based on whether a workout was logged', () async {
+    final firestore = FakeFirebaseFirestore();
+    final workoutRepository = WorkoutRepository(firestore: firestore);
+    await workoutRepository.createGeneralWorkout(
+      uid: 'u',
+      date: day,
+      durationMinutes: 30,
+      notes: 'Run',
+    );
+
+    final repository = AdherenceRepository(
+      firestore: firestore,
+      nutritionRepository: NutritionRepository(firestore: firestore),
+      workoutRepository: workoutRepository,
+      habitRepository: HabitRepository(firestore: firestore),
+    );
+
+    final summary = await repository.computeAndCacheDaily('u', day);
+    expect(summary.componentScores[AdherenceComponent.training], 1.0);
+  });
+
+  test('computeAndCacheDaily scores habits as a fraction, excluding excluded habits from the denominator', () async {
+    final firestore = FakeFirebaseFirestore();
+    final habitRepository = HabitRepository(firestore: firestore);
+    await habitRepository.createHabit(
+      'u',
+      Habit(id: 'h1', name: 'Water', cadence: HabitCadence.daily, createdAt: day),
+    );
+    await habitRepository.createHabit(
+      'u',
+      Habit(id: 'h2', name: 'Stretch', cadence: HabitCadence.daily, createdAt: day),
+    );
+    await habitRepository.createHabit(
+      'u',
+      Habit(id: 'h3', name: 'Run', cadence: HabitCadence.daily, createdAt: day),
+    );
+    await habitRepository.completeHabit('u', day, 'h1', completed: true);
+    await habitRepository.completeHabit('u', day, 'h2', completed: false);
+    await habitRepository.completeHabit(
+      'u',
+      day,
+      'h3',
+      completed: false,
+      excluded: true,
+      reason: ExclusionReason.illness,
+    );
+
+    final repository = AdherenceRepository(
+      firestore: firestore,
+      nutritionRepository: NutritionRepository(firestore: firestore),
+      workoutRepository: WorkoutRepository(firestore: firestore),
+      habitRepository: habitRepository,
+    );
+
+    final summary = await repository.computeAndCacheDaily('u', day);
+
+    // h3 excluded -> denominator is 2 (h1, h2), numerator 1 (h1 completed).
+    expect(summary.componentScores[AdherenceComponent.habits], closeTo(0.5, 1e-9));
+  });
+
+  test('getDaily reads back a cached summary', () async {
+    final firestore = FakeFirebaseFirestore();
+    final repository = _repo(firestore);
+
+    await repository.computeAndCacheDaily('u', day);
+    final fetched = await repository.getDaily('u', day);
+
+    expect(fetched, isNotNull);
+  });
+
+  test('computeAndCacheWeekly rolls up 7 days and skips future days', () async {
+    final firestore = FakeFirebaseFirestore();
+    final repository = _repo(firestore);
+
+    final summary = await repository.computeAndCacheWeekly('u', DateTime.now());
+
+    expect(summary.dailyScores, hasLength(7));
+    final fetched = await repository.getWeekly('u', summary.weekId);
+    expect(fetched, isNotNull);
+  });
+}

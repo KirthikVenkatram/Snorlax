@@ -86,6 +86,38 @@ class DashboardScreen extends StatelessWidget {
                   ],
                 ),
               ),
+              const SizedBox(height: 16),
+              GlassCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Habits', style: Theme.of(context).textTheme.headlineMedium),
+                    const SizedBox(height: 8),
+                    const Text('Track daily and weekly habits, with room for planned exclusions.'),
+                    const SizedBox(height: 16),
+                    PrimaryButton(
+                      label: 'Open habits',
+                      onPressed: () => GoRouter.of(context).push('/habits'),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              GlassCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Adherence', style: Theme.of(context).textTheme.headlineMedium),
+                    const SizedBox(height: 8),
+                    const Text('See a supportive daily and weekly view of how your plan is going.'),
+                    const SizedBox(height: 16),
+                    PrimaryButton(
+                      label: 'Open adherence',
+                      onPressed: () => GoRouter.of(context).push('/adherence'),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),

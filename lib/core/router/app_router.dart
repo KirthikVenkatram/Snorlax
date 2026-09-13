@@ -8,11 +8,15 @@ import '../../features/auth/domain/app_user.dart';
 import '../../features/auth/presentation/auth_providers.dart';
 import '../../features/auth/presentation/onboarding_screen.dart';
 import '../../features/auth/presentation/sign_in_screen.dart';
+import '../../features/adherence/presentation/adherence_providers.dart';
+import '../../features/adherence/presentation/adherence_screen.dart';
 import '../../features/body_composition/presentation/body_composition_providers.dart';
 import '../../features/body_composition/presentation/body_composition_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/goals/presentation/goal_providers.dart';
 import '../../features/goals/presentation/goals_screen.dart';
+import '../../features/habits/presentation/habit_providers.dart';
+import '../../features/habits/presentation/habits_screen.dart';
 import '../../features/nutrition/presentation/nutrition_home_screen.dart';
 import '../../features/nutrition/presentation/nutrition_providers.dart';
 import '../../features/strava/presentation/strava_providers.dart';
@@ -162,6 +166,27 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 onChanged: () {},
               );
             },
+          );
+        },
+      ),
+      GoRoute(
+        path: '/habits',
+        builder: (context, state) {
+          final uid = ref.read(firebaseAuthProvider).currentUser!.uid;
+          return HabitsScreen(
+            uid: uid,
+            repository: ref.read(habitRepositoryProvider),
+            onChanged: () {},
+          );
+        },
+      ),
+      GoRoute(
+        path: '/adherence',
+        builder: (context, state) {
+          final uid = ref.read(firebaseAuthProvider).currentUser!.uid;
+          return AdherenceScreen(
+            uid: uid,
+            repository: ref.read(adherenceRepositoryProvider),
           );
         },
       ),

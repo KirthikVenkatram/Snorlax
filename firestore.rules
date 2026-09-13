@@ -34,6 +34,34 @@ service cloud.firestore {
         allow read, write: if isOwner(uid) && metaDoc != 'stravaConnection';
       }
 
+      // Phase 5: habits + adherence. These are already covered by the
+      // generic `/{collection}/{document=**}` rule below (owner
+      // read/write on every non-meta collection), but are called out
+      // explicitly per the Phase 5 plan's constraint note.
+      //
+      // adherenceDaily/adherenceWeekly are *derived* summaries: ideally
+      // they'd be server-only writes (via a Cloud Function) so a client
+      // can't fabricate its own adherence score. Standing up a Function
+      // for that was judged too slow for this fast-track pass, so the
+      // calculator/repository compute-and-cache summaries from the
+      // client instead, and these collections remain owner-writable like
+      // everything else. See docs/superpowers/ISSUES.md for this gap.
+      match /habits/{habitId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      match /habitCompletions/{date} {
+        allow read, write: if isOwner(uid);
+      }
+
+      match /adherenceDaily/{date} {
+        allow read, write: if isOwner(uid);
+      }
+
+      match /adherenceWeekly/{weekId} {
+        allow read, write: if isOwner(uid);
+      }
+
       match /{collection}/{document=**} {
         allow read, write: if isOwner(uid) && collection != 'meta';
       }
