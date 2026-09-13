@@ -7,5 +7,6 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: DashboardScreen()));
     expect(find.text('Body composition'), findsOneWidget);
     expect(find.text('Goals'), findsOneWidget);
+    expect(find.text('AI Coach'), findsOneWidget);
   });
 }

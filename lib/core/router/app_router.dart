@@ -12,6 +12,8 @@ import '../../features/adherence/presentation/adherence_providers.dart';
 import '../../features/adherence/presentation/adherence_screen.dart';
 import '../../features/body_composition/presentation/body_composition_providers.dart';
 import '../../features/body_composition/presentation/body_composition_screen.dart';
+import '../../features/coach/presentation/coach_providers.dart';
+import '../../features/coach/presentation/coach_recommendations_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/goals/presentation/goal_providers.dart';
 import '../../features/goals/presentation/goals_screen.dart';
@@ -199,6 +201,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return ReadinessCheckInScreen(
             uid: uid,
             repository: ref.read(readinessRepositoryProvider),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/coach',
+        builder: (context, state) {
+          final uid = ref.read(firebaseAuthProvider).currentUser!.uid;
+          return CoachRecommendationsScreen(
+            uid: uid,
+            service: ref.read(coachServiceProvider),
           );
         },
       ),

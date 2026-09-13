@@ -69,8 +69,27 @@ service cloud.firestore {
         allow read, write: if isOwner(uid);
       }
 
+      // Phase 7: AI coach. `coachRecommendations` and `coachEvents` are
+      // server-written only — the Admin SDK (via `generateRecommendation`/
+      // `handleCommand`) is the only writer, so the AI's proposals and the
+      // audit trail of what was actually applied can't be forged or edited
+      // by a client. The client may only read them. These two collections
+      // must be excluded from the broad wildcard below (not just covered
+      // redundantly by it, as the Phase 5/6 explicit blocks are) — that
+      // wildcard grants owner write, which would defeat this rule.
+      match /coachRecommendations/{recommendationId} {
+        allow read: if isOwner(uid);
+        allow write: if false;
+      }
+
+      match /coachEvents/{eventId} {
+        allow read: if isOwner(uid);
+        allow write: if false;
+      }
+
       match /{collection}/{document=**} {
-        allow read, write: if isOwner(uid) && collection != 'meta';
+        allow read, write: if isOwner(uid) && collection != 'meta' &&
+            collection != 'coachRecommendations' && collection != 'coachEvents';
       }
     }
   }

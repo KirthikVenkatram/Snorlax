@@ -136,6 +136,25 @@ class DashboardScreen extends StatelessWidget {
                   ],
                 ),
               ),
+              const SizedBox(height: 16),
+              GlassCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('AI Coach', style: Theme.of(context).textTheme.headlineMedium),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Advisory-only recommendations you review and approve — nothing is '
+                      'changed without your say-so.',
+                    ),
+                    const SizedBox(height: 16),
+                    PrimaryButton(
+                      label: 'Open AI coach',
+                      onPressed: () => GoRouter.of(context).push('/coach'),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),

@@ -122,3 +122,95 @@ Each entry: phase, what's wrong/deferred, why, suggested fix.
    (already covered by the generic `/{collection}/{document=**}` owner
    rule), added purely for auditability/documentation, same pattern as the
    Phase 5 habits/adherence rule blocks. No fix needed.
+
+---
+
+## Phase 7 — AI Coach Infrastructure
+
+1. **Deployment is a manual step left for the user.** This phase adds two
+   new Cloud Functions (`generateRecommendation`, `handleCommand`) and
+   updates `firestore.rules` (see item 2 below). Per the fast-track
+   constraint, no `firebase deploy` was run — the code is written and
+   tested (unit-level; no emulator was used either) but not live. The user
+   needs to run `firebase deploy --only functions,firestore:rules` (or the
+   equivalent) before the `/coach` screen will work against a real backend.
+
+2. **`coachRecommendations`/`coachEvents` Firestore rules had to explicitly
+   carve themselves out of the existing broad owner wildcard**, not just
+   add a redundant explicit block the way Phase 5/6 additions did — the
+   wildcard grants owner write on every non-`meta` collection, which would
+   otherwise re-grant the client write access these two collections must
+   never have. Rules now read `collection != 'meta' && collection !=
+   'coachRecommendations' && collection != 'coachEvents'`. Worth
+   double-checking in the consolidated review pass that no future
+   phase's data accidentally lands in a collection name that shadows one
+   of these two.
+
+3. **`generateMealPlanProposal` on `AiProvider` is a stub** (routes through
+   the real provider so the seam is real, not hardcoded, but there is no
+   Phase-8 meal-plan data model to validate its output against yet). This
+   phase does not build Phase 8 — flagging the coupling point so whoever
+   builds Phase 8's meal planning knows this seam already exists in
+   `functions/src/ai/aiProvider.ts` and just needs a real schema/handler
+   wired up to it.
+
+4. **`workoutChange` proposals have no structured write target.** Workouts
+   has no coach-proposable schema (Phase 7's plan didn't extend it), so
+   `ProposedWorkoutChange` is free-text-only (`description: string`) and
+   `handleCommand`'s `applyCommand` treats it as advisory-only — approving
+   one still writes a `coachEvents` audit record (outcome `applied`) but
+   performs no Firestore mutation. This means "applied" doesn't uniformly
+   mean "a protected document changed" for this one command type; flagging
+   in case a future reviewer wants a distinct outcome value (e.g.
+   `acknowledged`) for advisory-only applies.
+
+5. **Readiness hard-safety-red interaction with `workoutChange` is a
+   judgment call, not a hard reject.** `validateCommand`'s
+   `validateWorkoutChange` always returns `requireApproval` for every
+   workout proposal (never `allow`), and does so unconditionally whether
+   or not readiness is red — the readiness-red/safety-override check is
+   folded into the same `requireApproval` result with a different `reason`
+   string rather than a `reject`, because a free-text proposal might
+   legitimately be "take a rest day" (safe) with no structured field to
+   distinguish that from "do your heaviest session" (unsafe). This is
+   conservative (never auto-allows) but doesn't hard-block a user from
+   approving a strenuous-sounding proposal on a red day if they choose to.
+   Revisit if/when workouts gets a structured intensity field the
+   validator could reason about directly.
+
+6. **`validateCommand`'s goal-change one-active-primary-goal check rejects
+   rather than auto-archives**, unlike `GoalRepository.updateGoal`/
+   `createGoal` on the Flutter client, which atomically archives the other
+   active primary goal in the same batch. The coach command layer
+   deliberately does *not* get to make that second silent write on the
+   AI's behalf — a proposal that would create two active primaries is
+   rejected outright, and the user (or a follow-up recommendation) has to
+   resolve the conflict explicitly. This is an intentional asymmetry
+   between the client's own goal editing flow and the AI-originated
+   command path, not a bug — noting it so a future reviewer doesn't "fix"
+   it into matching the client behavior without re-reading this reasoning.
+
+7. **No functions-side integration test exercises the real
+   `firebase-admin` Firestore adapter (`coach/adminFirestore.ts`)** — all
+   `coach/` unit tests use the in-memory `CoachFirestore` fake in
+   `fakeCoachFirestoreForTests.ts`, consistent with how the rest of
+   `functions/` is tested (no emulator harness exists in this repo yet).
+   `adminFirestore.ts` itself is a thin, un-branching adapter (`db.doc`/
+   `db.collection` pass-throughs), so the risk is low, but it is the one
+   piece of Phase 7 code with zero automated coverage. Consider an
+   emulator-backed smoke test in the consolidated review pass if a real
+   deploy surfaces path-construction issues.
+
+8. **Nutrition target safety floor (`MIN_SAFE_DAILY_CALORIES = 1200`) and
+   the "large change" approval threshold (300 kcal) in
+   `coach/validateCommand.ts` are fast, reasonable-looking constants, not
+   derived from the app's own nutrition goal calculator** (`core/
+   calculations/nutrition_goal_calculator.dart`) or any per-user minimum.
+   Same category of judgment call as the Phase 5/6 fixed-weight scoring
+   choices already logged above — revisit alongside those in the
+   consolidated review pass if a per-user floor feels more correct.
+
+9. **No chat UI, per the plan** — `/coach` is a recommendations list/detail
+   screen with accept/reject plus a toggled audit-log view, not a
+   conversational interface. This was explicit scope for Phase 7, not a
+   shortcut.

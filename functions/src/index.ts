@@ -9,3 +9,5 @@ export { stravaWebhook } from './stravaWebhook';
 export { searchFood } from './searchFood';
 export { parseFoodText } from './parseFoodText';
 export { estimateNutrition } from './estimateNutrition';
+export { generateRecommendation } from './coach/generateRecommendation';
+export { handleCommand } from './coach/handleCommand';
