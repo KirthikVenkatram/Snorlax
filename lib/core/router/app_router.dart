@@ -25,6 +25,7 @@ import '../../features/nutrition/presentation/nutrition_home_screen.dart';
 import '../../features/nutrition/presentation/nutrition_providers.dart';
 import '../../features/readiness/presentation/readiness_check_in_screen.dart';
 import '../../features/readiness/presentation/readiness_providers.dart';
+import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/strava/presentation/strava_providers.dart';
 import '../../features/workouts/presentation/workout_providers.dart';
 import '../../features/workouts/presentation/workouts_home_screen.dart';
@@ -96,6 +97,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(path: '/dashboard', builder: (context, state) => const DashboardScreen()),
+      GoRoute(
+        path: '/settings',
+        builder: (context, state) {
+          final user = ref.read(firebaseAuthProvider).currentUser!;
+          return SettingsScreen(
+            uid: user.uid,
+            email: user.email,
+            adherenceRepository: ref.read(adherenceRepositoryProvider),
+            authRepository: authRepository,
+          );
+        },
+      ),
       GoRoute(
         path: '/workouts',
         builder: (context, state) {

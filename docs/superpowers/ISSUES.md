@@ -414,3 +414,95 @@ original triage).
    anywhere in this repo; no emulator harness exists). Low risk since
    `adminFirestore.ts` remains a thin, un-branching pass-through, but
    flagging again since this phase adds two more collections it reads from.
+
+---
+
+## Phase 9 — Personal-Use Polish
+
+This was the final phase: integration/UI/build polish, not new domain
+logic. No per-task review gate per the plan; self-checked with
+`flutter test`/`flutter analyze` throughout, plus a full-suite pass at the
+end (227 tests, zero regressions; `flutter analyze` shows only the same 2
+pre-existing `prefer_initializing_formals` infos in `body_composition`/
+`goals` repositories that predate this phase).
+
+1. **`AdherenceWeights` validation is "non-negative, at least one weight
+   greater than zero," not "sums to a particular total."** The settings
+   screen's Save button rejects negative entries per-field and rejects an
+   all-zero set (which would make every day's adherence score undefined),
+   but otherwise accepts any non-negative combination, since
+   `AdherenceCalculator` already renormalizes weights across only the
+   non-excluded components for a given day — weights need not sum to 1.0
+   by design (see the existing doc comment on `AdherenceWeights` in
+   `lib/core/calculations/adherence_calculator.dart`). This matches the
+   calculator's existing contract rather than inventing new validation.
+
+2. **App version is read via `PackageInfo.fromPlatform()` (`package_info_plus`),
+   not a hardcoded constant**, so it always reflects `pubspec.yaml`'s
+   `version:` without needing to keep a second copy in sync. If the lookup
+   ever fails (unlikely — it reads bundled platform metadata, not a
+   network call), the settings screen shows "unknown" instead of crashing;
+   this is cosmetic-only and intentionally swallows the error in
+   `lib/features/settings/presentation/settings_screen.dart`'s `_loadVersion`.
+
+3. **The app icon and splash screen are original, programmatically
+   generated art** (`scripts/generate_icon.py`, Pillow-based, one-time
+   local build-tool script — not shipped as an app dependency): a dark
+   `AppColors.background` canvas, a soft `accentGreen` radial glow, a
+   rounded `AppColors.surface` badge, and an abstract "activity pulse"
+   (EKG-style zig-zag) glyph in `accentGreen` with a small `accentBlue`
+   accent dot — no third-party logo, font, or copyrighted asset involved.
+   Verified (not just trusted) to have actually replaced Flutter's stock
+   icons/splash by comparing MD5 hashes and file sizes of every generated
+   Android mipmap/adaptive-icon file and iOS `AppIcon.appiconset`/
+   `LaunchImage.imageset` file before and after running
+   `flutter_launcher_icons`/`flutter_native_splash` — all changed. A
+   `.venv-icon` virtualenv was created to install Pillow without touching
+   system Python (per the plan's allowance) and was deleted after the
+   script ran; it is not part of the repo.
+
+4. **`firebase_crashlytics` is wired for Dart-level error forwarding only
+   (`FlutterError.onError` and `PlatformDispatcher.instance.onError` in
+   `lib/main.dart`), with no native Crashlytics Gradle plugin added to
+   `android/build.gradle.kts`/`android/app/build.gradle.kts`.** The Flutter
+   plugin's own native SDK still initializes and can record/report errors
+   via the method channel without the Gradle plugin; what the Gradle
+   plugin additionally provides is automatic ProGuard/R8 mapping-file
+   upload for de-obfuscating stack traces in the Crashlytics console, and
+   NDK-level (native crash) symbolication. Since this is a personal,
+   single-developer app with no CI/App Store pipeline requiring automated
+   symbol upload, and adding the Gradle plugin would touch build files
+   beyond what the plan's file-structure list called for, this was judged
+   out of scope for this pass. Suggested fix: if Crashlytics reports ever
+   show unsymbolicated release-mode stack traces and that becomes
+   annoying, add `id("com.google.firebase.crashlytics")` to
+   `android/app/build.gradle.kts`'s plugins block and the corresponding
+   classpath entry to the project-level Gradle file, per Firebase's
+   standard setup docs.
+   Both `flutter build apk --release` and
+   `flutter build ios --release --no-codesign` succeed with Crashlytics
+   as configured, and the whole `flutter test` suite (which exercises
+   route wiring and screen behavior, though nothing directly pokes
+   `main()`'s top-level function) passes, so startup is not blocked.
+
+5. **The dashboard was given a minimal `AppBar` (title + a settings
+   `IconButton`) rather than the plan's optional "section headers grouping
+   Nutrition/Training vs. Habits/Readiness/Adherence vs. Goals/Coach/Meal
+   Planning" reorganization.** The plan explicitly said to skip
+   reorganization "if it risks breaking existing widget tests ... and just
+   add the app bar entry point instead" — the existing
+   `dashboard_screen_test.dart` asserts on specific card text existing in
+   a flat list, and reorganizing into sections seemed like unnecessary risk
+   for a phase this close to done. The existing test was extended (not
+   just left alone) with a new case for the settings entry point, per the
+   plan's instruction not to let it silently break.
+
+6. **Firebase deploy and physical-device install remain manual, per the
+   phase's hard constraint** — same category as the Phase 7/8 "deployment
+   is a manual step" entries above, now covering the Phase 9 additions too
+   (no new Cloud Functions were added in this phase, but the Phase 7/8
+   Functions and rules are still undeployed). See the new "Running this on
+   your own phone" section in `docs/ROADMAP.md` for the concrete
+   `firebase deploy` command and Xcode signing/device steps — no
+   `firebase deploy` was run and no device-install/code-signing was
+   attempted, per the plan's constraints.

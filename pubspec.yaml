@@ -46,6 +46,8 @@ dependencies:
   fl_chart: ^1.2.0
   cloud_functions: ^6.3.6
   flutter_web_auth_2: ^5.0.3
+  package_info_plus: ^8.1.2
+  firebase_crashlytics: ^5.2.7
 
 dev_dependencies:
   flutter_test:
@@ -60,6 +62,8 @@ dev_dependencies:
   mocktail: ^1.0.5
   firebase_auth_mocks: ^0.15.2
   fake_cloud_firestore: ^4.2.0
+  flutter_launcher_icons: ^0.14.3
+  flutter_native_splash: ^2.4.3
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -102,3 +106,25 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+  assets:
+    - assets/icon/
+    - assets/splash/
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/icon.png"
+  adaptive_icon_background: "#0A0A0F"
+  adaptive_icon_foreground: "assets/icon/icon_foreground.png"
+  remove_alpha_ios: true
+
+flutter_native_splash:
+  color: "#0A0A0F"
+  image: "assets/splash/splash.png"
+  android_12:
+    color: "#0A0A0F"
+    image: "assets/splash/splash.png"
+  android: true
+  ios: true
+  web: false

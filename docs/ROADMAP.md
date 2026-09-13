@@ -23,12 +23,46 @@ Personal-use Flutter fitness tracker. Target: fully working on the author's own 
   `docs/superpowers/ISSUES.md`, "Consolidated review fix pass" for details.
   Full `flutter test`/`flutter analyze` and functions `jest`/`tsc --noEmit`
   suites pass with zero regressions. Phases 5-8 are ready for Phase 9.
-- **Phase 9 — Personal-use polish**: planned. Dashboard integration, profile/settings, app icon/splash screen, release build, and Crashlytics.
+- **Phase 9 — Personal-use polish**: done. A `/settings` screen (adherence-weight view/edit UI wired to the real `AdherenceRepository`, profile email + sign-out wired to `AuthRepository.signOut`, app version via `package_info_plus`, and a consolidated non-medical-advice disclaimer), a settings entry point on the dashboard app bar, an original on-theme app icon and matching splash screen (generated programmatically, verified to differ from Flutter's stock defaults by file hash/size on both Android and iOS), and `firebase_crashlytics` wired into `main.dart` (guarded so a Crashlytics init failure can never block app startup). `flutter build apk --release` and `flutter build ios --release --no-codesign` both succeed; full `flutter test` (227 tests) and `flutter analyze` pass with zero regressions across all 8 prior phases. See `docs/superpowers/ISSUES.md`, "Phase 9" for judgment calls and deferred items.
 
 ## Explicitly out of scope
 
 - Monetization (subscriptions, ads, IAP) — deferred indefinitely, not part of this roadmap.
 - App Store / Google Play submission — app runs locally on the author's own device only.
+
+## Running this on your own phone (manual steps)
+
+Everything through Phase 9 is implemented and compiles cleanly in release mode, but two things were deliberately left as manual steps for the author, since they require credentials/hardware this environment doesn't have access to: deploying the backend, and code-signing an install onto a physical iPhone.
+
+### 1. Deploy the Phases 7-8 backend
+
+The AI coach (`/coach`) and its meal-plan-proposal path only work against a live backend. From the repo root, with the Firebase CLI authenticated to the right project:
+
+```
+firebase deploy --only functions,firestore:rules
+```
+
+This deploys the `generateRecommendation`, `handleCommand`, and `generateMealPlanRecommendation` Cloud Functions, plus the `firestore.rules` changes from Phases 5-8 (adherence weights, coach recommendations/events, budget/meal-planning collections). Everything else in the app (nutrition, workouts, habits, goals, body composition, readiness, settings) reads/writes Firestore directly and does not require a Functions deploy — only `/coach` and the "ask coach to propose a plan" button on `/meal-planning` need it.
+
+### 2. Build and install onto your iPhone via Xcode
+
+1. Open the iOS project in Xcode, **not** the plain `.xcodeproj`:
+   ```
+   open ios/Runner.xcworkspace
+   ```
+2. In the Xcode project navigator, select the **Runner** target, then the **Signing & Capabilities** tab.
+3. Under **Team**, pick your personal Apple ID team (add one first via Xcode → Settings → Accounts if you haven't signed in with your Apple ID before). Leave **Automatically manage signing** checked — Xcode will provision a free personal development certificate for you.
+4. Plug your iPhone into your Mac via USB (or pair it wirelessly: Window → Devices and Simulators → check "Connect via network" once paired by cable the first time).
+5. On the iPhone, if this is its first time being used for development, go to **Settings → Privacy & Security → Developer Mode** and enable it (requires a restart).
+6. In Xcode's device/scheme selector (top toolbar), choose your physical iPhone as the run destination, and set the build scheme to **Release** (Product → Scheme → Edit Scheme → Run → Build Configuration → Release).
+7. Press Run (▶). Xcode will build, sign, and install the app on your phone. The first launch will be blocked by iOS until you trust the developer certificate: on the phone, go to **Settings → General → VPN & Device Management**, tap your Apple ID under "Developer App", and tap **Trust**.
+8. Alternatively, once your device is paired and trusted, you can skip Xcode entirely for subsequent installs and use:
+   ```
+   flutter run --release -d <device-id>
+   ```
+   (find `<device-id>` via `flutter devices`).
+
+Free personal-team signing certificates expire after 7 days, so you'll need to re-run step 6/7 (or `flutter run --release`) weekly to keep the app installed and working, unless you enroll in the paid Apple Developer Program for a year-long certificate.
 
 ## Process
 
