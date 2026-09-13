@@ -32,17 +32,18 @@ Personal-use Flutter fitness tracker. Target: fully working on the author's own 
 
 ## Running this on your own phone (manual steps)
 
-Everything through Phase 9 is implemented and compiles cleanly in release mode, but two things were deliberately left as manual steps for the author, since they require credentials/hardware this environment doesn't have access to: deploying the backend, and code-signing an install onto a physical iPhone.
+### 1. Backend deploy — done (2026-09-13)
 
-### 1. Deploy the Phases 7-8 backend
+`firebase deploy --only functions,firestore:rules` has been run against the `snorlax-d2f99` Firebase project (on the Blaze plan). `firestore.rules` is live, and all 8 Cloud Functions are deployed: `exchangeStravaToken`, `stravaWebhook`, `searchFood`, `parseFoodText`, `estimateNutrition`, `generateRecommendation`, `generateMealPlanRecommendation`, `handleCommand`. A container-image cleanup policy (`firebase functions:artifacts:setpolicy`, 1-day retention) is set in `us-central1` to avoid storage cost creep from build artifacts.
 
-The AI coach (`/coach`) and its meal-plan-proposal path only work against a live backend. From the repo root, with the Firebase CLI authenticated to the right project:
+**Important — every external API secret is currently a placeholder.** `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `STRAVA_WEBHOOK_VERIFY_TOKEN`, `USDA_API_KEY`, `NUTRITIONIX_APP_ID`, `NUTRITIONIX_APP_KEY`, `GROQ_API_KEY`, and `NVIDIA_NIM_API_KEY` were all set to the literal string `placeholder-not-configured` in Secret Manager just to satisfy the deploy (Firebase validates that every secret referenced by any function has at least one version, even for functions you don't call). This means:
+- `/coach` recommendations and the meal-plan-proposal path will call Groq/NVIDIA NIM and fail (both keys are placeholders) until real keys are set.
+- Nutrition food search/parsing (`searchFood`, `parseFoodText`, `estimateNutrition`) will fail the same way until real USDA/Nutritionix/Groq/NIM keys are set.
+- Strava sync remains intentionally paused (paid developer tier, deferred spend) — its placeholders don't need real values unless that decision changes.
 
-```
-firebase deploy --only functions,firestore:rules
-```
+To set a real key once you have one: `echo -n "<real-value>" | firebase functions:secrets:set SECRET_NAME --data-file -`, then redeploy the function(s) that use it (`firebase deploy --only functions:<name>`) so it picks up the new secret version.
 
-This deploys the `generateRecommendation`, `handleCommand`, and `generateMealPlanRecommendation` Cloud Functions, plus the `firestore.rules` changes from Phases 5-8 (adherence weights, coach recommendations/events, budget/meal-planning collections). Everything else in the app (nutrition, workouts, habits, goals, body composition, readiness, settings) reads/writes Firestore directly and does not require a Functions deploy — only `/coach` and the "ask coach to propose a plan" button on `/meal-planning` need it.
+Everything else in the app (workouts, habits, goals, body composition, readiness, settings, and manually-built meal plans) reads/writes Firestore directly and never touches these functions or secrets.
 
 ### 2. Build and install onto your iPhone via Xcode
 
