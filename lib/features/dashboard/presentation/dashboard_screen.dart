@@ -118,6 +118,24 @@ class DashboardScreen extends StatelessWidget {
                   ],
                 ),
               ),
+              const SizedBox(height: 16),
+              GlassCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Readiness', style: Theme.of(context).textTheme.headlineMedium),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'A quick, non-medical daily check-in to help decide how hard to train today.',
+                    ),
+                    const SizedBox(height: 16),
+                    PrimaryButton(
+                      label: 'Open readiness',
+                      onPressed: () => GoRouter.of(context).push('/readiness'),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),

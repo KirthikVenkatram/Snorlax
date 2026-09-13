@@ -10,7 +10,7 @@ Each entry: phase, what's wrong/deferred, why, suggested fix.
 
 ## Phase 5 — Habits + Adherence
 
-1. **Recovery component is always excluded (neutral), not scored.**
+1. **CLOSED in Phase 6.** Recovery component is always excluded (neutral), not scored.
    `AdherenceRepository.computeAndCacheDaily` hardcodes
    `AdherenceComponent.recovery` to `ComponentInput.excluded()` for every
    day, since Phase 6 (Readiness + Recovery) hasn't landed the underlying
@@ -72,3 +72,53 @@ Each entry: phase, what's wrong/deferred, why, suggested fix.
    top-level collection, since it's a single per-user settings document
    and fits the existing convention. No fix needed — noting the choice
    for anyone auditing collection layout later.
+
+---
+
+## Phase 6 — Readiness + Recovery
+
+1. **Item #1 above is now closed.** `AdherenceRepository._recoveryComponent`
+   reads the day's `ReadinessEntry` (via `ReadinessRepository.getByDate`)
+   and scores the recovery component from `ReadinessResult.score` when a
+   check-in exists for that date, falling back to
+   `ComponentInput.excluded()` (not a score of 0) when there's no
+   check-in. `AdherenceRepository` now takes an optional
+   `readinessRepository` constructor param (defaulting to a real
+   `ReadinessRepository(firestore: firestore)` when not supplied, so
+   existing call sites that don't pass one still work). Covered by new
+   tests in `test/features/adherence/data/adherence_repository_test.dart`
+   ("scores recovery from the day's readiness check-in" and "excludes
+   recovery (not zero) when no readiness check-in exists").
+
+2. **Readiness score feeding adherence does not distinguish "genuinely
+   good recovery" from "a hard safety override fired."** `ReadinessResult.
+   score` is the raw composite score computed *before* the hard safety
+   override check, even when the override forces `level = red` (e.g. pain/
+   injury with an otherwise-good composite score). This is intentional —
+   the override is about the *level* (a training-intensity signal), not
+   about retroactively fabricating a bad wellness score for a day that
+   otherwise looks fine — but it means the adherence recovery component
+   can show a decent score on a day the user reported pain/injury. Since
+   adherence is a supportive, non-punitive signal (not a safety layer)
+   this was judged acceptable, but flagging it in case a future reviewer
+   wants recovery-component scoring to also zero out on override days.
+
+3. **Readiness scoring weights (six equally-weighted components blended
+   into one composite, with fixed 0.70/0.45 green/yellow/red thresholds)
+   are a fast, deterministic choice, not spec'd exactly** — same category
+   of judgment call as the Phase 5 nutrition-scoring formula (see item #4
+   above). No per-user tuning of these weights/thresholds was built (unlike
+   `AdherenceWeights`, which is configurable). Suggested fix: revisit
+   alongside adherence scoring in the consolidated review pass if the
+   fixed thresholds feel wrong in practice.
+
+4. **No trend/history view for readiness** — only a single day's check-in
+   is shown in `ReadinessCheckInScreen`; there's no charted history the
+   way body composition has trends. Out of scope for this fast-track pass
+   per the plan (daily check-in form + result display only); could reuse
+   the existing `ProgressChart` widget in a later polish pass.
+
+5. **`readiness/{date}` Firestore rule is a redundant explicit block**
+   (already covered by the generic `/{collection}/{document=**}` owner
+   rule), added purely for auditability/documentation, same pattern as the
+   Phase 5 habits/adherence rule blocks. No fix needed.

@@ -62,6 +62,13 @@ service cloud.firestore {
         allow read, write: if isOwner(uid);
       }
 
+      // Phase 6: readiness + recovery. Also already covered by the generic
+      // rule below, but called out explicitly per the Phase 6 plan's
+      // constraint note — self-reported wellness data, owner-only.
+      match /readiness/{date} {
+        allow read, write: if isOwner(uid);
+      }
+
       match /{collection}/{document=**} {
         allow read, write: if isOwner(uid) && collection != 'meta';
       }

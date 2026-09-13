@@ -19,6 +19,8 @@ import '../../features/habits/presentation/habit_providers.dart';
 import '../../features/habits/presentation/habits_screen.dart';
 import '../../features/nutrition/presentation/nutrition_home_screen.dart';
 import '../../features/nutrition/presentation/nutrition_providers.dart';
+import '../../features/readiness/presentation/readiness_check_in_screen.dart';
+import '../../features/readiness/presentation/readiness_providers.dart';
 import '../../features/strava/presentation/strava_providers.dart';
 import '../../features/workouts/presentation/workout_providers.dart';
 import '../../features/workouts/presentation/workouts_home_screen.dart';
@@ -187,6 +189,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return AdherenceScreen(
             uid: uid,
             repository: ref.read(adherenceRepositoryProvider),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/readiness',
+        builder: (context, state) {
+          final uid = ref.read(firebaseAuthProvider).currentUser!.uid;
+          return ReadinessCheckInScreen(
+            uid: uid,
+            repository: ref.read(readinessRepositoryProvider),
           );
         },
       ),

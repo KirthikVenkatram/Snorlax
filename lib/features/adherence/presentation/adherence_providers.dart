@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/presentation/auth_providers.dart';
 import '../../habits/presentation/habit_providers.dart';
 import '../../nutrition/presentation/nutrition_providers.dart';
+import '../../readiness/presentation/readiness_providers.dart';
 import '../../workouts/presentation/workout_providers.dart';
 import '../data/adherence_repository.dart';
 
@@ -11,5 +12,6 @@ final adherenceRepositoryProvider = Provider<AdherenceRepository>((ref) {
     nutritionRepository: ref.watch(nutritionRepositoryProvider),
     workoutRepository: ref.watch(workoutRepositoryProvider),
     habitRepository: ref.watch(habitRepositoryProvider),
+    readinessRepository: ref.watch(readinessRepositoryProvider),
   );
 });

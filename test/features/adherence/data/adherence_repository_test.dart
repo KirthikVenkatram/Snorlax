@@ -7,6 +7,8 @@ import 'package:fitness_tracker/features/habits/domain/habit.dart';
 import 'package:fitness_tracker/features/habits/domain/habit_completion.dart';
 import 'package:fitness_tracker/features/nutrition/data/nutrition_repository.dart';
 import 'package:fitness_tracker/features/nutrition/domain/food_entry.dart';
+import 'package:fitness_tracker/features/readiness/data/readiness_repository.dart';
+import 'package:fitness_tracker/features/readiness/domain/readiness_entry.dart';
 import 'package:fitness_tracker/features/workouts/data/workout_repository.dart';
 
 AdherenceRepository _repo(FakeFirebaseFirestore firestore) => AdherenceRepository(
@@ -34,7 +36,7 @@ void main() {
     expect(updated.nutrition, 0.5);
   });
 
-  test('computeAndCacheDaily excludes nutrition when no goal is set and no entries logged', () async {
+  test('computeAndCacheDaily excludes nutrition and recovery when neither has data', () async {
     final firestore = FakeFirebaseFirestore();
     final repository = _repo(firestore);
 
@@ -42,6 +44,67 @@ void main() {
 
     expect(summary.excludedComponents, contains(AdherenceComponent.nutrition));
     expect(summary.excludedComponents, contains(AdherenceComponent.recovery));
+  });
+
+  test('computeAndCacheDaily scores recovery from the day\'s readiness check-in', () async {
+    final firestore = FakeFirebaseFirestore();
+    final readinessRepository = ReadinessRepository(firestore: firestore);
+    await readinessRepository.recordCheckIn(
+      'u',
+      day,
+      const ReadinessInputs(
+        sleepHours: 8,
+        sleepConsistency: 1.0,
+        soreness: 0.0,
+        fatigue: 0.0,
+        energy: 1.0,
+        recentTrainingLoad: 0.0,
+      ),
+    );
+
+    final repository = AdherenceRepository(
+      firestore: firestore,
+      nutritionRepository: NutritionRepository(firestore: firestore),
+      workoutRepository: WorkoutRepository(firestore: firestore),
+      habitRepository: HabitRepository(firestore: firestore),
+      readinessRepository: readinessRepository,
+    );
+
+    final summary = await repository.computeAndCacheDaily('u', day);
+
+    expect(summary.excludedComponents, isNot(contains(AdherenceComponent.recovery)));
+    expect(summary.componentScores[AdherenceComponent.recovery], closeTo(1.0, 1e-9));
+  });
+
+  test('computeAndCacheDaily excludes recovery (not zero) when no readiness check-in exists for the date', () async {
+    final firestore = FakeFirebaseFirestore();
+    final readinessRepository = ReadinessRepository(firestore: firestore);
+    // Check in for a different date only.
+    await readinessRepository.recordCheckIn(
+      'u',
+      day.subtract(const Duration(days: 1)),
+      const ReadinessInputs(
+        sleepHours: 8,
+        sleepConsistency: 1.0,
+        soreness: 0.0,
+        fatigue: 0.0,
+        energy: 1.0,
+        recentTrainingLoad: 0.0,
+      ),
+    );
+
+    final repository = AdherenceRepository(
+      firestore: firestore,
+      nutritionRepository: NutritionRepository(firestore: firestore),
+      workoutRepository: WorkoutRepository(firestore: firestore),
+      habitRepository: HabitRepository(firestore: firestore),
+      readinessRepository: readinessRepository,
+    );
+
+    final summary = await repository.computeAndCacheDaily('u', day);
+
+    expect(summary.excludedComponents, contains(AdherenceComponent.recovery));
+    expect(summary.componentScores.containsKey(AdherenceComponent.recovery), isFalse);
   });
 
   test('computeAndCacheDaily scores nutrition against the goal and logged entries', () async {

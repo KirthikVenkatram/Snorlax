@@ -9,7 +9,7 @@ Personal-use Flutter fitness tracker. Target: fully working on the author's own 
 - **Phase 3 — Nutrition**: implemented. Food logging, daily calorie/macro goals, custom foods, multi-source food search, natural-language logging, and entry editing.
 - **Phase 4 — Body Composition + Goals**: implemented. Historical measurements, deterministic body-composition estimates, trends, and hierarchical goals.
 - **Phase 5 — Habits + Adherence**: implemented. User-managed habits with daily completions and neutral exclusions, deterministic daily/weekly adherence summaries across nutrition/training/habits/recovery with configurable weights, and supportive (non-punitive) copy.
-- **Phase 6 — Readiness + Recovery**: planned. Lightweight deterministic readiness inputs and non-medical training guidance.
+- **Phase 6 — Readiness + Recovery**: implemented. Daily self-reported readiness check-ins, a deterministic non-medical green/yellow/red result with hard safety overrides (pain/injury, extreme sleep deprivation + high soreness), and the readiness score now wired into the adherence recovery component.
 - **Phase 7 — AI Coach**: planned. Versioned context, structured recommendations, deterministic validation, user approval, and auditable events.
 - **Phase 8 — Budget-Aware Meal Planning**: planned. Budgets, manual/live price snapshots, reusable meal templates, and cost-aware plans.
 - **Phase 9 — Personal-use polish**: planned. Dashboard integration, profile/settings, app icon/splash screen, release build, and Crashlytics.

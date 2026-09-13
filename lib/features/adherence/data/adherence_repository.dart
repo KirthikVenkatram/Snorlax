@@ -3,6 +3,7 @@ import '../../../core/calculations/adherence_calculator.dart';
 import '../../habits/data/habit_repository.dart';
 import '../../habits/domain/habit_completion.dart';
 import '../../nutrition/data/nutrition_repository.dart';
+import '../../readiness/data/readiness_repository.dart';
 import '../../workouts/data/workout_repository.dart';
 import '../domain/adherence_summary.dart';
 
@@ -21,6 +22,7 @@ class AdherenceRepository {
     required NutritionRepository nutritionRepository,
     required WorkoutRepository workoutRepository,
     required HabitRepository habitRepository,
+    ReadinessRepository? readinessRepository,
   })  : // ignore: prefer_initializing_formals
         _firestore = firestore,
         // ignore: prefer_initializing_formals
@@ -28,12 +30,14 @@ class AdherenceRepository {
         // ignore: prefer_initializing_formals
         _workoutRepository = workoutRepository,
         // ignore: prefer_initializing_formals
-        _habitRepository = habitRepository;
+        _habitRepository = habitRepository,
+        _readinessRepository = readinessRepository ?? ReadinessRepository(firestore: firestore);
 
   final FirebaseFirestore _firestore;
   final NutritionRepository _nutritionRepository;
   final WorkoutRepository _workoutRepository;
   final HabitRepository _habitRepository;
+  final ReadinessRepository _readinessRepository;
 
   CollectionReference<Map<String, dynamic>> _dailySummaries(String uid) =>
       _firestore.collection('users').doc(uid).collection('adherenceDaily');
@@ -71,8 +75,12 @@ class AdherenceRepository {
   /// - habits: fraction of that day's non-archived habits marked completed,
   ///   with excluded habits removed from the denominator. No habits at all
   ///   -> excluded.
-  /// - recovery: always excluded (neutral) until Phase 6 readiness data
-  ///   exists — logged in ISSUES.md.
+  /// - recovery: the day's readiness score (see
+  ///   `lib/core/calculations/readiness_calculator.dart`), which already
+  ///   folds in the hard safety overrides (pain/injury, extreme sleep
+  ///   deprivation + high soreness) at the readiness layer. No readiness
+  ///   check-in for that date -> excluded (not a score of 0 — missing
+  ///   data isn't the same as bad readiness).
   Future<DailyAdherenceSummary> computeAndCacheDaily(String uid, DateTime date) async {
     final day = DateTime(date.year, date.month, date.day);
     final weights = await getWeights(uid);
@@ -80,7 +88,7 @@ class AdherenceRepository {
     final nutritionInput = await _nutritionComponent(uid, day);
     final trainingInput = await _trainingComponent(uid, day);
     final habitsInput = await _habitsComponent(uid, day);
-    const recoveryInput = ComponentInput.excluded();
+    final recoveryInput = await _recoveryComponent(uid, day);
 
     final result = AdherenceCalculator.calculateDaily(
       date: day,
@@ -171,6 +179,12 @@ class AdherenceRepository {
 
     if (countedCount == 0) return const ComponentInput.excluded();
     return ComponentInput.scored(completedCount / countedCount);
+  }
+
+  Future<ComponentInput> _recoveryComponent(String uid, DateTime day) async {
+    final entry = await _readinessRepository.getByDate(uid, day);
+    if (entry == null) return const ComponentInput.excluded();
+    return ComponentInput.scored(entry.result.score);
   }
 
   bool _isSameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
