@@ -155,6 +155,25 @@ class DashboardScreen extends StatelessWidget {
                   ],
                 ),
               ),
+              const SizedBox(height: 16),
+              GlassCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Meal planning', style: Theme.of(context).textTheme.headlineMedium),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Set a food budget, build reusable meal templates, and see cost/nutrition '
+                      'breakdowns for daily and weekly plans.',
+                    ),
+                    const SizedBox(height: 16),
+                    PrimaryButton(
+                      label: 'Open meal planning',
+                      onPressed: () => GoRouter.of(context).push('/meal-planning'),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),

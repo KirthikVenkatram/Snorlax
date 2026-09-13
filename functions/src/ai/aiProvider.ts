@@ -17,11 +17,14 @@ export interface AiProvider {
   generateCoachRecommendation(prompt: string): Promise<string>;
   summarizeProgress(prompt: string): Promise<string>;
   /**
-   * Phase 8 (meal planning) has not landed yet, so there is no meal-plan
-   * data model to ground this operation in. It still routes through the
-   * real provider (so the seam is real, not a hardcoded stub), but callers
-   * should treat its output as provisional until Phase 8 defines the
-   * expected shape. See docs/superpowers/ISSUES.md, "Phase 7".
+   * As of Phase 8, called by `coach/generateMealPlanRecommendation.ts` with
+   * a budget/meal-template-grounded prompt. Like every `AiProvider`
+   * operation, this returns raw provider text — the caller is responsible
+   * for parsing/validating it (`ai/schemas.ts`'s `parseMealPlanRecommendation`)
+   * and never trusts any cost/nutrition numbers the model might include; only
+   * `templateId`/`servings` pairs are accepted from the proposal, with cost
+   * computed deterministically server-side. See docs/superpowers/ISSUES.md,
+   * "Phase 8".
    */
   generateMealPlanProposal(prompt: string): Promise<string>;
 }

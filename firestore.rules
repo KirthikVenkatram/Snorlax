@@ -87,6 +87,31 @@ service cloud.firestore {
         allow write: if false;
       }
 
+      // Phase 8: budget-aware meal planning. Already covered by the generic
+      // `/{collection}/{document=**}` rule below, but called out explicitly
+      // per the Phase 5/6/7 plans' constraint note. Unlike
+      // `coachRecommendations`/`coachEvents`, `mealPlans` is owner-writable,
+      // not server-only: a user can create/edit a meal plan directly (same
+      // as `goals`/`habits`, which are also both user-editable AND
+      // coach-command-writable), and `handleCommand` writes it via the
+      // Admin SDK regardless of these rules. See docs/superpowers/ISSUES.md,
+      // "Phase 8" for the reasoning.
+      match /budgetSettings/{settingsDoc} {
+        allow read, write: if isOwner(uid);
+      }
+
+      match /priceSnapshots/{snapshotId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      match /mealTemplates/{templateId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      match /mealPlans/{planId} {
+        allow read, write: if isOwner(uid);
+      }
+
       match /{collection}/{document=**} {
         allow read, write: if isOwner(uid) && collection != 'meta' &&
             collection != 'coachRecommendations' && collection != 'coachEvents';

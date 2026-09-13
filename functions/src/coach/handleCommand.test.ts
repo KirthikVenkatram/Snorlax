@@ -110,3 +110,121 @@ describe('handleCommandHandler', () => {
     await expect(handleCommandHandler('u1', 'missing', 'approve', db)).rejects.toThrow();
   });
 });
+
+describe('handleCommandHandler — mealPlanChange (Phase 8)', () => {
+  it('applies an approved, in-budget mealPlanChange by writing a deterministically-computed mealPlans document', async () => {
+    const db = createFakeCoachFirestore({
+      'users/u1/coachRecommendations/r1': {
+        proposedCommand: {
+          type: 'mealPlanChange',
+          planId: null,
+          name: 'Weekday lunches',
+          periodType: 'daily',
+          items: [{ templateId: 't1', servings: 2 }],
+        },
+        status: 'pending',
+      },
+      'users/u1/budgetSettings/current': { currency: 'USD', dailyLimit: 20, weeklyLimit: null, monthlyLimit: null },
+      'users/u1/mealTemplates/t1': {
+        name: 'Chicken and rice',
+        costPerServing: 3.5,
+        caloriesPerServing: 550,
+        proteinGPerServing: 45,
+      },
+    });
+
+    const result = await handleCommandHandler('u1', 'r1', 'approve', db);
+
+    expect(result.outcome).toBe('applied');
+    const plans = await db.getCollection('users/u1/mealPlans');
+    expect(plans).toHaveLength(1);
+    expect(plans[0].data).toMatchObject({
+      name: 'Weekday lunches',
+      periodType: 'daily',
+      totalCost: 7,
+      totalCalories: 1100,
+      totalProteinG: 90,
+      currency: 'USD',
+      source: 'aiProposal',
+    });
+  });
+
+  it('adversarial no-bypass: an approve decision cannot force through a mealPlanChange that now exceeds budget at fresh re-validation', async () => {
+    const db = createFakeCoachFirestore({
+      'users/u1/coachRecommendations/r1': {
+        proposedCommand: {
+          type: 'mealPlanChange',
+          planId: null,
+          name: 'Way too much food',
+          periodType: 'daily',
+          items: [{ templateId: 't1', servings: 10 }],
+        },
+        // A stale/forged client-side validation claiming this is fine.
+        preliminaryValidation: { result: 'requireApproval', reason: 'stale' },
+        status: 'pending',
+      },
+      // Budget is tight enough that 10 servings blows through it.
+      'users/u1/budgetSettings/current': { currency: 'USD', dailyLimit: 20, weeklyLimit: null, monthlyLimit: null },
+      'users/u1/mealTemplates/t1': {
+        name: 'Chicken and rice',
+        costPerServing: 3.5,
+        caloriesPerServing: 550,
+        proteinGPerServing: 45,
+      },
+    });
+
+    const result = await handleCommandHandler('u1', 'r1', 'approve', db);
+
+    expect(result.outcome).toBe('rejectedByValidation');
+    expect(await db.getCollection('users/u1/mealPlans')).toHaveLength(0);
+  });
+
+  it('rejects a mealPlanChange referencing an unknown template and never writes a mealPlans doc', async () => {
+    const db = createFakeCoachFirestore({
+      'users/u1/coachRecommendations/r1': {
+        proposedCommand: {
+          type: 'mealPlanChange',
+          planId: null,
+          name: 'Mystery meal',
+          periodType: 'daily',
+          items: [{ templateId: 'ghost', servings: 1 }],
+        },
+        status: 'pending',
+      },
+    });
+
+    const result = await handleCommandHandler('u1', 'r1', 'approve', db);
+
+    expect(result.outcome).toBe('rejectedByValidation');
+    expect(await db.getCollection('users/u1/mealPlans')).toHaveLength(0);
+  });
+
+  it('updates an existing plan in place when planId is supplied', async () => {
+    const db = createFakeCoachFirestore({
+      'users/u1/coachRecommendations/r1': {
+        proposedCommand: {
+          type: 'mealPlanChange',
+          planId: 'p1',
+          name: 'Updated plan',
+          periodType: 'daily',
+          items: [{ templateId: 't1', servings: 1 }],
+        },
+        status: 'pending',
+      },
+      'users/u1/mealPlans/p1': { name: 'Old plan', createdAt: '2026-01-01T00:00:00.000Z' },
+      'users/u1/mealTemplates/t1': {
+        name: 'Chicken and rice',
+        costPerServing: 3.5,
+        caloriesPerServing: 550,
+        proteinGPerServing: 45,
+      },
+    });
+
+    const result = await handleCommandHandler('u1', 'r1', 'approve', db);
+
+    expect(result.outcome).toBe('applied');
+    const plan = await db.getDoc('users/u1/mealPlans/p1');
+    expect(plan).toMatchObject({ name: 'Updated plan', totalCost: 3.5, createdAt: '2026-01-01T00:00:00.000Z' });
+    expect(await db.getCollection('users/u1/mealPlans')).toHaveLength(1);
+  });
+});

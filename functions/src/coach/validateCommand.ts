@@ -3,9 +3,11 @@ import {
   ProposedCommand,
   ProposedGoalChange,
   ProposedHabitChange,
+  ProposedMealPlanChange,
   ProposedNutritionTargetChange,
   ProposedWorkoutChange,
 } from '../ai/schemas';
+import { computeMealPlanCost } from './mealPlanCost';
 
 export type ValidationResult = 'allow' | 'requireApproval' | 'reject';
 
@@ -113,6 +115,59 @@ function validateWorkoutChange(command: ProposedWorkoutChange, context: CoachCon
   return { result: 'requireApproval', reason: 'Workout proposals always require explicit user approval.' };
 }
 
+/** Sanity bound: no single line item may propose an implausible serving count. */
+const MAX_SERVINGS_PER_ITEM = 20;
+
+/** Sanity bound: a plan may not propose an implausible number of line items. */
+const MAX_ITEMS_PER_PLAN = 40;
+
+function validateMealPlanChange(command: ProposedMealPlanChange, context: CoachContext): CommandValidation {
+  if (command.items.length === 0) {
+    return { result: 'reject', reason: 'A meal plan proposal must include at least one item.' };
+  }
+  if (command.items.length > MAX_ITEMS_PER_PLAN) {
+    return { result: 'reject', reason: `Meal plan proposes too many line items (max ${MAX_ITEMS_PER_PLAN}).` };
+  }
+  for (const item of command.items) {
+    if (!Number.isFinite(item.servings) || item.servings <= 0 || item.servings > MAX_SERVINGS_PER_ITEM) {
+      return {
+        result: 'reject',
+        reason: `Servings for template "${item.templateId}" must be > 0 and <= ${MAX_SERVINGS_PER_ITEM}.`,
+      };
+    }
+  }
+
+  // The AI never calculates or supplies cost/nutrition totals itself — only
+  // template ids and servings. Cost is computed here, deterministically,
+  // from already-persisted `mealTemplates` data (see `mealPlanCost.ts`).
+  // Every referenced template must already exist; an unknown template id
+  // means the proposal cannot be safely priced, so it is rejected outright
+  // rather than allowed through with an unknown/zero cost.
+  const costResult = computeMealPlanCost(command.items, context.mealPlanning.templates);
+  if (!costResult.allTemplatesResolved) {
+    return {
+      result: 'reject',
+      reason: 'Meal plan proposal references one or more unknown meal templates.',
+    };
+  }
+
+  const budget = context.mealPlanning.budget;
+  if (budget !== null && costResult.totalCost !== null) {
+    const ceiling = command.periodType === 'daily' ? budget.dailyLimit : budget.weeklyLimit ?? (budget.dailyLimit !== null ? budget.dailyLimit * 7 : null);
+    if (ceiling !== null && costResult.totalCost > ceiling) {
+      return {
+        result: 'reject',
+        reason: `Proposed plan cost ${costResult.totalCost.toFixed(2)} ${budget.currency} exceeds the ${command.periodType} budget ceiling of ${ceiling.toFixed(2)} ${budget.currency}.`,
+      };
+    }
+  }
+
+  return {
+    result: 'requireApproval',
+    reason: 'Meal plan proposals always require explicit user approval before a plan is persisted.',
+  };
+}
+
 /**
  * Pure, deterministic command validator. Independent of the AI provider
  * call entirely — it only looks at the proposed command and the (already
@@ -131,5 +186,7 @@ export function validateCommand(command: ProposedCommand, context: CoachContext)
       return validateHabitChange(command);
     case 'workoutChange':
       return validateWorkoutChange(command, context);
+    case 'mealPlanChange':
+      return validateMealPlanChange(command, context);
   }
 }

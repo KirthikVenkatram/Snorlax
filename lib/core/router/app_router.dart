@@ -19,6 +19,8 @@ import '../../features/goals/presentation/goal_providers.dart';
 import '../../features/goals/presentation/goals_screen.dart';
 import '../../features/habits/presentation/habit_providers.dart';
 import '../../features/habits/presentation/habits_screen.dart';
+import '../../features/meal_planning/presentation/meal_planning_providers.dart';
+import '../../features/meal_planning/presentation/meal_planning_screen.dart';
 import '../../features/nutrition/presentation/nutrition_home_screen.dart';
 import '../../features/nutrition/presentation/nutrition_providers.dart';
 import '../../features/readiness/presentation/readiness_check_in_screen.dart';
@@ -211,6 +213,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return CoachRecommendationsScreen(
             uid: uid,
             service: ref.read(coachServiceProvider),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/meal-planning',
+        builder: (context, state) {
+          final uid = ref.read(firebaseAuthProvider).currentUser!.uid;
+          return MealPlanningScreen(
+            uid: uid,
+            budgetRepository: ref.read(budgetRepositoryProvider),
+            templateRepository: ref.read(mealTemplateRepositoryProvider),
+            planRepository: ref.read(mealPlanRepositoryProvider),
           );
         },
       ),

@@ -1,9 +1,10 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { ProposedCommand } from '../ai/schemas';
-import { buildCoachContext } from './buildCoachContext';
+import { buildCoachContext, CoachContext } from './buildCoachContext';
 import { CoachFirestore, newDocId } from './firestorePort';
 import { createAdminCoachFirestore } from './adminFirestore';
 import { validateCommand } from './validateCommand';
+import { computeMealPlanCost } from './mealPlanCost';
 
 export type CoachDecision = 'approve' | 'reject';
 
@@ -29,8 +30,20 @@ interface RecommendationDoc {
  * `workoutChange` has no structured write target yet (workouts has no
  * coach-proposable schema) — it is advisory-only and intentionally a no-op
  * here. See docs/superpowers/ISSUES.md, "Phase 7".
+ *
+ * `mealPlanChange` is the one command type whose write requires more than
+ * the command's own fields: the actual `mealPlans` document is a
+ * deterministically-computed cost/nutrition aggregate (via
+ * `computeMealPlanCost`), never AI-supplied numbers, so `context` (freshly
+ * rebuilt by the caller, same as the one `validateCommand` just checked
+ * against) is threaded through for its `mealPlanning.templates` data.
  */
-async function applyCommand(db: CoachFirestore, uid: string, command: ProposedCommand): Promise<void> {
+async function applyCommand(
+  db: CoachFirestore,
+  uid: string,
+  command: ProposedCommand,
+  context: CoachContext,
+): Promise<void> {
   const base = `users/${uid}`;
   switch (command.type) {
     case 'nutritionTargetChange': {
@@ -93,6 +106,30 @@ async function applyCommand(db: CoachFirestore, uid: string, command: ProposedCo
     case 'workoutChange':
       // Advisory-only; no protected write target exists for this type.
       return;
+    case 'mealPlanChange': {
+      const now = new Date().toISOString();
+      const cost = computeMealPlanCost(command.items, context.mealPlanning.templates);
+      const currency = context.mealPlanning.budget?.currency ?? 'USD';
+      const planData = {
+        name: command.name,
+        periodType: command.periodType,
+        items: cost.lines,
+        totalCost: cost.totalCost,
+        totalCalories: cost.totalCalories,
+        totalProteinG: cost.totalProteinG,
+        proteinPerCurrencyUnit: cost.proteinPerCurrencyUnit,
+        currency,
+        source: 'aiProposal',
+        updatedAt: now,
+      };
+      if (command.planId === null) {
+        const id = newDocId();
+        await db.setDoc(`${base}/mealPlans/${id}`, { ...planData, createdAt: now });
+      } else {
+        await db.updateDoc(`${base}/mealPlans/${command.planId}`, planData);
+      }
+      return;
+    }
   }
 }
 
@@ -157,7 +194,7 @@ export async function handleCommandHandler(
 
   // 'allow' or 'requireApproval': the user's explicit 'approve' decision
   // satisfies the approval requirement in both cases.
-  await applyCommand(db, uid, command);
+  await applyCommand(db, uid, command, freshContext);
 
   const outcome: CoachEventOutcome = 'applied';
   await db.setDoc(`${base}/coachEvents/${eventId}`, {

@@ -1,4 +1,4 @@
-import { parseCoachRecommendation } from './schemas';
+import { parseCoachRecommendation, parseMealPlanRecommendation } from './schemas';
 
 describe('parseCoachRecommendation', () => {
   it('parses a valid advice-only recommendation (no proposed command)', () => {
@@ -79,5 +79,97 @@ describe('parseCoachRecommendation', () => {
       proposedCommand: { type: 'goalChange', name: '' },
     });
     expect(() => parseCoachRecommendation(raw)).toThrow();
+  });
+
+  it('parses a valid mealPlanChange proposal', () => {
+    const raw = JSON.stringify({
+      summary: 'Budget-friendly daily plan',
+      rationale: 'Uses your two cheapest templates.',
+      proposedCommand: {
+        type: 'mealPlanChange',
+        planId: null,
+        name: 'Cheap daily plan',
+        periodType: 'daily',
+        items: [{ templateId: 't1', servings: 2 }],
+      },
+    });
+    const result = parseCoachRecommendation(raw);
+    expect(result.proposedCommand).toEqual({
+      type: 'mealPlanChange',
+      planId: null,
+      name: 'Cheap daily plan',
+      periodType: 'daily',
+      items: [{ templateId: 't1', servings: 2 }],
+    });
+  });
+
+  it('throws if a mealPlanChange has an empty items array', () => {
+    const raw = JSON.stringify({
+      summary: 'ok',
+      rationale: 'ok',
+      proposedCommand: { type: 'mealPlanChange', planId: null, name: 'x', periodType: 'daily', items: [] },
+    });
+    expect(() => parseCoachRecommendation(raw)).toThrow();
+  });
+
+  it('throws if a mealPlanChange item has a non-positive servings count', () => {
+    const raw = JSON.stringify({
+      summary: 'ok',
+      rationale: 'ok',
+      proposedCommand: {
+        type: 'mealPlanChange',
+        planId: null,
+        name: 'x',
+        periodType: 'daily',
+        items: [{ templateId: 't1', servings: 0 }],
+      },
+    });
+    expect(() => parseCoachRecommendation(raw)).toThrow();
+  });
+
+  it('throws if a mealPlanChange has an invalid periodType', () => {
+    const raw = JSON.stringify({
+      summary: 'ok',
+      rationale: 'ok',
+      proposedCommand: {
+        type: 'mealPlanChange',
+        planId: null,
+        name: 'x',
+        periodType: 'monthly',
+        items: [{ templateId: 't1', servings: 1 }],
+      },
+    });
+    expect(() => parseCoachRecommendation(raw)).toThrow();
+  });
+});
+
+describe('parseMealPlanRecommendation', () => {
+  it('accepts a valid mealPlanChange proposal', () => {
+    const raw = JSON.stringify({
+      summary: 'ok',
+      rationale: 'ok',
+      proposedCommand: {
+        type: 'mealPlanChange',
+        planId: null,
+        name: 'x',
+        periodType: 'daily',
+        items: [{ templateId: 't1', servings: 1 }],
+      },
+    });
+    expect(parseMealPlanRecommendation(raw).proposedCommand).toMatchObject({ type: 'mealPlanChange' });
+  });
+
+  it('accepts a null proposedCommand', () => {
+    const raw = JSON.stringify({ summary: 'ok', rationale: 'ok', proposedCommand: null });
+    expect(parseMealPlanRecommendation(raw).proposedCommand).toBeNull();
+  });
+
+  it('rejects a well-formed proposal of a different command type — this call site only ever asked for a meal plan', () => {
+    const raw = JSON.stringify({
+      summary: 'ok',
+      rationale: 'ok',
+      proposedCommand: { type: 'habitChange', habitId: null, name: 'x', cadence: 'daily', timesPerWeek: null, archived: false },
+    });
+    expect(() => parseMealPlanRecommendation(raw)).toThrow();
   });
 });

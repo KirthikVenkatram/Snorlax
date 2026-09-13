@@ -3,6 +3,7 @@ import { CoachContext, coachContextSchemaVersion } from './buildCoachContext';
 import {
   ProposedGoalChange,
   ProposedHabitChange,
+  ProposedMealPlanChange,
   ProposedNutritionTargetChange,
   ProposedWorkoutChange,
 } from '../ai/schemas';
@@ -16,6 +17,13 @@ function fixtureContext(overrides: Partial<CoachContext> = {}): CoachContext {
     adherence: { latestWeeklyOverallScore: 0.8 },
     readiness: { latestLevel: 'green', latestSafetyOverrideTriggered: false },
     habits: { activeCount: 3 },
+    mealPlanning: {
+      budget: { currency: 'USD', dailyLimit: 20, weeklyLimit: 120, monthlyLimit: null },
+      templates: [
+        { id: 't1', name: 'Chicken and rice', costPerServing: 3.5, caloriesPerServing: 550, proteinGPerServing: 45 },
+        { id: 't2', name: 'Oats and yogurt', costPerServing: 1.5, caloriesPerServing: 350, proteinGPerServing: 20 },
+      ],
+    },
     ...overrides,
   };
 }
@@ -202,5 +210,127 @@ describe('validateCommand — workoutChange and readiness hard-safety red', () =
   it('always requires approval for workout proposals, even on a green day', () => {
     const command: ProposedWorkoutChange = { type: 'workoutChange', description: 'Easy jog' };
     expect(validateCommand(command, fixtureContext()).result).toBe('requireApproval');
+  });
+});
+
+describe('validateCommand — mealPlanChange', () => {
+  it('requires approval for a well-formed, in-budget plan', () => {
+    const command: ProposedMealPlanChange = {
+      type: 'mealPlanChange',
+      planId: null,
+      name: 'Weekday lunches',
+      periodType: 'daily',
+      items: [{ templateId: 't1', servings: 1 }, { templateId: 't2', servings: 2 }],
+    };
+    // 1 * 3.5 + 2 * 1.5 = 6.5, under the 20/day fixture budget.
+    expect(validateCommand(command, fixtureContext()).result).toBe('requireApproval');
+  });
+
+  it('adversarial: rejects a plan whose deterministic cost exceeds the daily budget ceiling, never allows it through', () => {
+    const command: ProposedMealPlanChange = {
+      type: 'mealPlanChange',
+      planId: null,
+      name: 'Way too much food',
+      periodType: 'daily',
+      items: [{ templateId: 't1', servings: 10 }], // 10 * 3.5 = 35 > 20 daily budget
+    };
+    const result = validateCommand(command, fixtureContext());
+    expect(result.result).toBe('reject');
+    expect(result.result).not.toBe('allow');
+  });
+
+  it('adversarial: rejects a weekly plan exceeding the weekly ceiling even though per-day it looks fine', () => {
+    const command: ProposedMealPlanChange = {
+      type: 'mealPlanChange',
+      planId: null,
+      name: 'Big week',
+      periodType: 'weekly',
+      items: [{ templateId: 't1', servings: 40 }], // 40 * 3.5 = 140 > 120 weekly budget
+    };
+    expect(validateCommand(command, fixtureContext()).result).toBe('reject');
+  });
+
+  it('falls back to dailyLimit * 7 for weekly proposals when no explicit weeklyLimit is set', () => {
+    const context = fixtureContext({
+      mealPlanning: {
+        budget: { currency: 'USD', dailyLimit: 10, weeklyLimit: null, monthlyLimit: null },
+        templates: [
+          { id: 't1', name: 'Chicken and rice', costPerServing: 3.5, caloriesPerServing: 550, proteinGPerServing: 45 },
+        ],
+      },
+    });
+    const command: ProposedMealPlanChange = {
+      type: 'mealPlanChange',
+      planId: null,
+      name: 'Big week',
+      periodType: 'weekly',
+      items: [{ templateId: 't1', servings: 21 }], // 21 * 3.5 = 73.5 > 70 (10 * 7)
+    };
+    expect(validateCommand(command, context).result).toBe('reject');
+  });
+
+  it('rejects a plan referencing an unknown template id rather than pricing it as free', () => {
+    const command: ProposedMealPlanChange = {
+      type: 'mealPlanChange',
+      planId: null,
+      name: 'Mystery meal',
+      periodType: 'daily',
+      items: [{ templateId: 'does-not-exist', servings: 1 }],
+    };
+    expect(validateCommand(command, fixtureContext()).result).toBe('reject');
+  });
+
+  it('rejects an empty items list', () => {
+    const command: ProposedMealPlanChange = {
+      type: 'mealPlanChange',
+      planId: null,
+      name: 'Empty plan',
+      periodType: 'daily',
+      items: [],
+    };
+    expect(validateCommand(command, fixtureContext()).result).toBe('reject');
+  });
+
+  it('rejects a non-positive or implausibly large servings count', () => {
+    const zero: ProposedMealPlanChange = {
+      type: 'mealPlanChange',
+      planId: null,
+      name: 'Zero servings',
+      periodType: 'daily',
+      items: [{ templateId: 't1', servings: 0 }],
+    };
+    expect(validateCommand(zero, fixtureContext()).result).toBe('reject');
+
+    const huge: ProposedMealPlanChange = {
+      type: 'mealPlanChange',
+      planId: null,
+      name: 'Absurd servings',
+      periodType: 'daily',
+      items: [{ templateId: 't1', servings: 1000 }],
+    };
+    expect(validateCommand(huge, fixtureContext()).result).toBe('reject');
+  });
+
+  it('requires approval (never auto-allows) even for a well within-budget plan, since it is a new financial commitment', () => {
+    const command: ProposedMealPlanChange = {
+      type: 'mealPlanChange',
+      planId: null,
+      name: 'Cheap plan',
+      periodType: 'daily',
+      items: [{ templateId: 't2', servings: 1 }],
+    };
+    expect(validateCommand(command, fixtureContext()).result).toBe('requireApproval');
+  });
+
+  it('does not reject on missing budget settings — a proposal with no budget configured still requires approval', () => {
+    const context = fixtureContext({ mealPlanning: { budget: null, templates: fixtureContext().mealPlanning.templates } });
+    const command: ProposedMealPlanChange = {
+      type: 'mealPlanChange',
+      planId: null,
+      name: 'No budget set yet',
+      periodType: 'daily',
+      items: [{ templateId: 't1', servings: 1 }],
+    };
+    expect(validateCommand(command, context).result).toBe('requireApproval');
   });
 });

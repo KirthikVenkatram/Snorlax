@@ -18,7 +18,7 @@ describe('defaultAiProvider', () => {
     expect(llmClient.generateText).toHaveBeenCalledWith('prompt');
   });
 
-  it('routes generateMealPlanProposal through llmClient.generateText (Phase 8 stub)', async () => {
+  it('routes generateMealPlanProposal through llmClient.generateText', async () => {
     (llmClient.generateText as jest.Mock).mockResolvedValue('meal plan text');
     const result = await defaultAiProvider.generateMealPlanProposal('prompt');
     expect(result).toBe('meal plan text');

@@ -10,4 +10,5 @@ export { searchFood } from './searchFood';
 export { parseFoodText } from './parseFoodText';
 export { estimateNutrition } from './estimateNutrition';
 export { generateRecommendation } from './coach/generateRecommendation';
+export { generateMealPlanRecommendation } from './coach/generateMealPlanRecommendation';
 export { handleCommand } from './coach/handleCommand';

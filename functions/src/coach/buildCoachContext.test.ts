@@ -57,7 +57,41 @@ describe('buildCoachContext', () => {
         adherence: { latestWeeklyOverallScore: null },
         readiness: { latestLevel: null, latestSafetyOverrideTriggered: false },
         habits: { activeCount: 0 },
+        mealPlanning: { budget: null, templates: [] },
       }),
+    );
+  });
+
+  it('includes budget settings and a compact meal-template summary (Phase 8)', async () => {
+    const db = createFakeCoachFirestore({
+      'users/u1/budgetSettings/current': { currency: 'USD', dailyLimit: 20, weeklyLimit: 120, monthlyLimit: null },
+      'users/u1/mealTemplates/t1': {
+        name: 'Chicken and rice',
+        costPerServing: 3.5,
+        caloriesPerServing: 550,
+        proteinGPerServing: 45,
+      },
+      'users/u1/mealTemplates/t2': {
+        name: 'Untriced smoothie',
+        costPerServing: null,
+        caloriesPerServing: 300,
+        proteinGPerServing: 20,
+      },
+    });
+
+    const context = await buildCoachContext(db, 'u1');
+
+    expect(context.mealPlanning.budget).toEqual({
+      currency: 'USD',
+      dailyLimit: 20,
+      weeklyLimit: 120,
+      monthlyLimit: null,
+    });
+    expect(context.mealPlanning.templates).toEqual(
+      expect.arrayContaining([
+        { id: 't1', name: 'Chicken and rice', costPerServing: 3.5, caloriesPerServing: 550, proteinGPerServing: 45 },
+        { id: 't2', name: 'Untriced smoothie', costPerServing: null, caloriesPerServing: 300, proteinGPerServing: 20 },
+      ]),
     );
   });
 });

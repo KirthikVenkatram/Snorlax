@@ -54,11 +54,37 @@ export interface ProposedWorkoutChange {
   description: string;
 }
 
+/**
+ * One line item in a proposed meal plan: a reference to an existing
+ * `mealTemplates/{templateId}` document plus how many servings of it. The AI
+ * never proposes a price, calorie count, or cost total here — those are
+ * always looked up from the template/price data already in Firestore and
+ * computed deterministically by `coach/mealPlanCost.ts`, never trusted from
+ * model output. See the spec's "Budget-aware Nutrition and Meal Planning"
+ * section and docs/superpowers/ISSUES.md, "Phase 8".
+ */
+export interface ProposedMealPlanItem {
+  templateId: string;
+  servings: number;
+}
+
+export type MealPlanPeriodType = 'daily' | 'weekly';
+
+export interface ProposedMealPlanChange {
+  type: 'mealPlanChange';
+  /** null means "propose creating a new plan". */
+  planId: string | null;
+  name: string;
+  periodType: MealPlanPeriodType;
+  items: ProposedMealPlanItem[];
+}
+
 export type ProposedCommand =
   | ProposedNutritionTargetChange
   | ProposedGoalChange
   | ProposedHabitChange
-  | ProposedWorkoutChange;
+  | ProposedWorkoutChange
+  | ProposedMealPlanChange;
 
 export interface CoachRecommendation {
   summary: string;
@@ -124,12 +150,33 @@ export function isProposedWorkoutChange(value: unknown): value is ProposedWorkou
   return v.type === 'workoutChange' && isNonEmptyString(v.description);
 }
 
+function isProposedMealPlanItem(value: unknown): value is ProposedMealPlanItem {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return isNonEmptyString(v.templateId) && isFiniteNumber(v.servings) && v.servings > 0;
+}
+
+export function isProposedMealPlanChange(value: unknown): value is ProposedMealPlanChange {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return (
+    v.type === 'mealPlanChange' &&
+    (v.planId === null || isNonEmptyString(v.planId)) &&
+    isNonEmptyString(v.name) &&
+    (v.periodType === 'daily' || v.periodType === 'weekly') &&
+    Array.isArray(v.items) &&
+    v.items.length > 0 &&
+    v.items.every(isProposedMealPlanItem)
+  );
+}
+
 export function isProposedCommand(value: unknown): value is ProposedCommand {
   return (
     isProposedNutritionTargetChange(value) ||
     isProposedGoalChange(value) ||
     isProposedHabitChange(value) ||
-    isProposedWorkoutChange(value)
+    isProposedWorkoutChange(value) ||
+    isProposedMealPlanChange(value)
   );
 }
 
@@ -170,4 +217,23 @@ export function parseCoachRecommendation(text: string): CoachRecommendation {
     rationale: parsed.rationale,
     proposedCommand: (rawCommand as ProposedCommand | null | undefined) ?? null,
   };
+}
+
+/**
+ * Parses a raw `aiProvider.generateMealPlanProposal` response using the same
+ * `{summary, rationale, proposedCommand}` shape and validation as
+ * `parseCoachRecommendation`, but additionally requires that a non-null
+ * `proposedCommand` be a `mealPlanChange` specifically — this call site only
+ * ever asked for a meal plan, so any other proposal type in the response
+ * indicates a malformed/off-topic model reply and is rejected rather than
+ * silently accepted.
+ */
+export function parseMealPlanRecommendation(text: string): CoachRecommendation {
+  const recommendation = parseCoachRecommendation(text);
+  if (recommendation.proposedCommand !== null && recommendation.proposedCommand.type !== 'mealPlanChange') {
+    throw new Error(
+      `Expected a mealPlanChange proposal or none, got "${recommendation.proposedCommand.type}"`,
+    );
+  }
+  return recommendation;
 }

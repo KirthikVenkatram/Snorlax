@@ -214,3 +214,123 @@ Each entry: phase, what's wrong/deferred, why, suggested fix.
    screen with accept/reject plus a toggled audit-log view, not a
    conversational interface. This was explicit scope for Phase 7, not a
    shortcut.
+
+---
+
+## Phase 8 — Budget-Aware Meal Planning
+
+1. **Deployment is a manual step left for the user.** This phase adds one
+   new Cloud Function (`generateMealPlanRecommendation`), extends
+   `handleCommand`/`validateCommand` with a `mealPlanChange` case, and adds
+   four new `firestore.rules` blocks (`budgetSettings`, `priceSnapshots`,
+   `mealTemplates`, `mealPlans`). Per the fast-track constraint, no
+   `firebase deploy` was run. The user needs to run
+   `firebase deploy --only functions,firestore:rules` before
+   `generateMealPlanRecommendation` and the updated command validation are
+   live against a real backend; the `/meal-planning` screen's own CRUD
+   (budgets/templates/plans) works against Firestore directly and does not
+   require a Functions deploy, only the rules deploy.
+
+2. **Live price providers are explicitly out of scope, per the spec's
+   "manual first, then live providers" phrasing.** `LivePriceProvider` in
+   `lib/features/meal_planning/data/price_provider.dart` is an interface
+   with exactly one implementation this phase,
+   `UnavailableLivePriceProvider`, which always returns a
+   `PriceQuoteResult`/`PriceSnapshot` with `source: unavailable` and a null
+   price — never a fabricated number, per the plan's "never silently blank
+   or zero" constraint, but also never an actual Blinkit/Zepto/local-store
+   integration. Suggested fix: implement a real `LivePriceProvider` against
+   a chosen provider's API when/if that becomes a priority; no caller needs
+   to change since the interface is already the seam.
+
+3. **Meal-plan cost aggregation is duplicated, by hand, in two languages.**
+   `lib/core/calculations/meal_plan_calculator.dart` (Dart, client-side) and
+   `functions/src/coach/mealPlanCost.ts` (TypeScript, server-side for
+   AI-proposed plans) implement the same "sum servings × cost/calories/
+   protein per template, null-propagate on any unknown cost" logic
+   independently, because this repo has no cross-language shared-code
+   mechanism (same category of duplication risk as `AdherenceCalculator`/
+   `readinessCalculationVersion`-style version constants living per-
+   platform, but here it's actual arithmetic, not just a version number).
+   Both are independently unit-tested and were verified to agree on the
+   worked examples in each test suite, but a future change to one (e.g. a
+   different budget-ceiling fallback rule) must be mirrored in the other by
+   hand. Suggested fix: if a third money-math feature is ever added,
+   consider whether a small shared-logic-as-data-contract (e.g. documented
+   pseudocode both sides literally copy from) or a build step that
+   generates one from the other is worth the complexity; not worth it yet
+   for two call sites.
+
+4. **`mealPlans` is owner-writable, not server-only, unlike
+   `coachRecommendations`/`coachEvents`.** This was a judgment call the plan
+   explicitly asked for: a user can build and save a meal plan directly from
+   the `/meal-planning` screen (via `MealPlanRepository.createFromTemplates`,
+   which always computes totals through `MealPlanCalculator` — there is no
+   path that accepts a caller-supplied total) without ever going through the
+   AI coach, the same way `goals`/`habits` are both user-editable AND
+   coach-command-writable. `handleCommand`'s Admin-SDK write to `mealPlans`
+   for an approved `mealPlanChange` bypasses these rules regardless, so
+   owner-writable here doesn't weaken the AI-proposal integrity guarantee —
+   it only matters for manually-created plans, which have no AI-trust
+   concern in the first place.
+
+5. **`ProposedMealPlanChange.periodType` is only `daily`/`weekly` — no
+   `monthly` plan proposal type**, even though budgets support a
+   `monthlyLimit` and the calculator exposes `projectMonthlyCost`. A monthly
+   plan felt like a rarer authoring unit (most reusable-meal-template
+   planning is naturally daily/weekly), so monthly is presented as a
+   *projection* from a daily/weekly plan's total rather than its own
+   plannable period. Suggested fix: add `monthly` as a third `periodType` if
+   real usage shows people want to build/approve a plan at that granularity
+   directly rather than just view a projection.
+
+6. **The mealPlanChange budget-ceiling check is a hard `reject`, not
+   `requireApproval`, when a proposal exceeds the configured budget** —
+   different from `nutritionTargetChange`'s "large change requires
+   approval" treatment. This was a deliberate choice for the phase's
+   adversarial-test requirement ("a proposal exceeding budget must not
+   silently succeed") and because a budget ceiling is closer to
+   `nutritionTargetChange`'s safety-floor reject than to a discretionary
+   "large but plausible" judgment call — but it means a user who might
+   actually want to say "yes, blow the budget just this once" cannot
+   approve an over-ceiling AI proposal at all; they'd need to lower the
+   servings/items themselves and ask again, or build the plan manually
+   (which has no budget check at all, only the AI-proposal path does).
+   Revisit if this feels too rigid in practice.
+
+7. **No UI affordance to browse/attach individual `priceSnapshots` to a
+   meal template from the meal-planning screen** — `PriceRepository`/
+   `ManualPriceProvider` exist and are tested, but `MealTemplate.costPerServing`
+   is entered directly as a number in the template-creation dialog rather
+   than composed from priced ingredient-level snapshots (consistent with
+   "no ingredient/recipe builder" being explicitly out of scope). A price
+   snapshot's real intended use in this phase is as a standalone
+   price-tracking record (e.g. "what did chicken cost this week"), not yet
+   wired into template cost entry. Suggested fix: if ingredient-level
+   pricing becomes wanted later, add a picker in the template dialog that
+   pulls `PriceRepository.latestForItem` results instead of a bare cost
+   text field — but that edges toward the recipe-builder scope the plan
+   excluded, so revisit deliberately, not by default.
+
+8. **`generateMealPlanRecommendation` is a separate callable/prompt from
+   `generateRecommendation`, not a generic case of it**, even though
+   `ai/schemas.ts`'s `ProposedCommand` union (and therefore
+   `parseCoachRecommendation`) already accepts a `mealPlanChange` from
+   *either* endpoint. This mirrors the fact that `AiProvider` already had a
+   distinct `generateMealPlanProposal` operation from Phase 7 that nothing
+   called — closing that specific seam meant giving it a real caller with
+   its own budget/template-focused prompt, rather than merging meal-plan
+   generation into the general recommendation flow (which has no equivalent
+   focused context to hand the model). Both endpoints write to the same
+   `coachRecommendations` collection and go through the identical
+   `handleCommand` accept/reject path, so there is no functional gap from
+   having two generation entry points — just noting the asymmetry for
+   anyone expecting exactly one "generate a recommendation" call site.
+
+9. **No functions-side integration test exercises the real
+   `firebase-admin` Firestore adapter for the new `budgetSettings`/
+   `mealTemplates` reads in `buildCoachContext.ts`** — same category of gap
+   as Phase 7 item 7 (`adminFirestore.ts` has zero automated coverage
+   anywhere in this repo; no emulator harness exists). Low risk since
+   `adminFirestore.ts` remains a thin, un-branching pass-through, but
+   flagging again since this phase adds two more collections it reads from.
