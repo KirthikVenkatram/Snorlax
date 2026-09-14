@@ -22,7 +22,7 @@ async function callGroq(prompt: string): Promise<string> {
       Authorization: `Bearer ${groqApiKey()}`,
     },
     body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
+      model: 'qwen/qwen3.8-27b',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0,
     }),
@@ -42,7 +42,7 @@ async function callNvidiaNim(prompt: string): Promise<string> {
       Authorization: `Bearer ${nimApiKey()}`,
     },
     body: JSON.stringify({
-      model: 'meta/llama-3.1-70b-instruct',
+      model: 'nvidia/nemotron-3-super-120b-a12b',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0,
     }),
