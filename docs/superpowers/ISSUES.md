@@ -40,6 +40,29 @@ Each entry: phase, what's wrong/deferred, why, suggested fix.
    file) — no deploy was run as part of this fix, per this project's
    established pattern for backend changes.
 
+2. **Price tracking (`PriceRepository`/`ManualPriceProvider`/
+   `price_provider.dart`) and `MealTemplateRepository.update`/`.delete`/
+   `MealPlanRepository.delete` were implemented and unit-tested but never
+   called from the UI.** Same over-engineering-audit finding as item 1
+   above, for `lib/features/meal_planning/`. Fixed by adding a "Prices"
+   section directly to `MealPlanningScreen` (a `GlassCard` matching the
+   existing budget/templates/plans sections) with a form that records a
+   manual price snapshot via `ManualPriceProvider(manualPrice:
+   ...).getPrice(...)` → `PriceRepository.record`, and a list from
+   `PriceRepository.listAll`; and by adding edit/delete icon actions to the
+   meal-templates list (`MealTemplateRepository.update`/`.delete`) and a
+   delete action to the meal-plans list (`MealPlanRepository.delete`), each
+   with a confirm dialog before delete. Price tracking stays a standalone
+   "what did this cost over time" record, per Phase 8 item 7's reasoning —
+   it is NOT wired into template cost entry, which is still a manually-typed
+   number; composing template cost from priced ingredients would edge
+   toward the out-of-scope recipe-builder. Tests: four new cases in
+   `test/features/meal_planning/presentation/meal_planning_screen_test.dart`
+   (record a price → shows in list; edit a template persists; delete a
+   template removes it; delete a plan removes it), using a taller test
+   surface (`pumpTallSurface`) since the new section pushed later sections
+   past what the default test viewport builds lazily.
+
 ---
 
 ## Consolidated review fix pass (before Phase 9)
@@ -563,3 +586,26 @@ the UI (not deleting), since the underlying behavior is wanted.
   widget test in `test/features/goals/presentation/goals_screen_test.dart`
   asserting the confirm/cancel path and that confirming calls
   `archiveGoal` and updates the goal's status.
+
+- **`ExerciseLibraryRepository.watchAll`**
+  (`lib/features/workouts/data/exercise_library_repository.dart`) was
+  implemented and even used internally by `search` (via `.first`), but
+  nothing in the UI held a live subscription — so custom exercises added
+  from another device or flow never appeared without a manual refresh.
+  Added `lib/features/workouts/presentation/exercise_library_screen.dart`,
+  a `StreamBuilder<List<Exercise>>` browse screen over `watchAll(uid)`
+  with a client-side text filter and the same "add custom exercise when
+  no exact match" affordance as the existing in-flow `ExercisePicker`
+  (reused, not duplicated, by calling `addCustom` directly). Reachable
+  from an "Exercise library" icon button in `WorkoutsHomeScreen`'s app
+  bar, and also routed at `/workouts/exercise-library` in
+  `lib/core/router/app_router.dart`. Left the in-flow picker
+  (`lib/features/workouts/presentation/exercise_picker.dart`, used when
+  logging a strength workout) on its one-off `search` Future as-is:
+  it's a short-lived modal picker, not a place where multi-device live
+  updates matter, and switching it would have been scope creep beyond
+  wiring up the dead `watchAll` call. Covered by
+  `test/features/workouts/presentation/exercise_library_screen_test.dart`,
+  including a case that writes to the repository directly (simulating a
+  write from elsewhere) and asserts the already-mounted screen picks it
+  up via the stream without rebuilding.

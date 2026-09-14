@@ -5,6 +5,7 @@ import '../../strava/presentation/strava_connect_banner.dart';
 import '../data/exercise_library_repository.dart';
 import '../data/workout_repository.dart';
 import '../domain/workout.dart';
+import 'exercise_library_screen.dart';
 import 'log_general_screen.dart';
 import 'log_strength_screen.dart';
 import 'workout_detail_screen.dart';
@@ -64,6 +65,17 @@ class _WorkoutsHomeScreenState extends State<WorkoutsHomeScreen> {
     );
   }
 
+  void _openExerciseLibrary() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ExerciseLibraryScreen(
+          uid: widget.uid,
+          repository: widget.exerciseRepository,
+        ),
+      ),
+    );
+  }
+
   Future<void> _openLogGeneral() async {
     await Navigator.of(context).push(
       MaterialPageRoute(
@@ -109,7 +121,16 @@ class _WorkoutsHomeScreenState extends State<WorkoutsHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Workouts')),
+      appBar: AppBar(
+        title: const Text('Workouts'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.list_alt),
+            tooltip: 'Exercise library',
+            onPressed: _openExerciseLibrary,
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showLogOptions,
         tooltip: 'Log a workout',

@@ -27,6 +27,7 @@ import '../../features/readiness/presentation/readiness_check_in_screen.dart';
 import '../../features/readiness/presentation/readiness_providers.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/strava/presentation/strava_providers.dart';
+import '../../features/workouts/presentation/exercise_library_screen.dart';
 import '../../features/workouts/presentation/workout_providers.dart';
 import '../../features/workouts/presentation/workouts_home_screen.dart';
 
@@ -130,6 +131,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             workoutRepository: ref.read(workoutRepositoryProvider),
             exerciseRepository: ref.read(exerciseLibraryRepositoryProvider),
             stravaRepository: ref.read(stravaConnectionRepositoryProvider),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/workouts/exercise-library',
+        builder: (context, state) {
+          final uid = ref.read(firebaseAuthProvider).currentUser!.uid;
+          return ExerciseLibraryScreen(
+            uid: uid,
+            repository: ref.read(exerciseLibraryRepositoryProvider),
           );
         },
       ),
@@ -248,6 +259,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             budgetRepository: ref.read(budgetRepositoryProvider),
             templateRepository: ref.read(mealTemplateRepositoryProvider),
             planRepository: ref.read(mealPlanRepositoryProvider),
+            priceRepository: ref.read(priceRepositoryProvider),
             coachService: ref.read(coachServiceProvider),
           );
         },

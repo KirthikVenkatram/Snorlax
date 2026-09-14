@@ -8,21 +8,31 @@ import '../../coach/data/coach_service.dart';
 import '../data/budget_repository.dart';
 import '../data/meal_plan_repository.dart';
 import '../data/meal_template_repository.dart';
+import '../data/price_provider.dart';
+import '../data/price_repository.dart';
 import '../domain/budget_settings.dart';
 import '../domain/meal_plan.dart';
 import '../domain/meal_template.dart';
 import '../domain/price_snapshot.dart';
 
-/// Budget settings, reusable meal templates, and saved/proposed meal plans
-/// in one screen — following the same "one screen, no chat UI, list +
-/// simple forms" convention as `ReadinessCheckInScreen`/
-/// `CoachRecommendationsScreen` for a fast-track feature of this scope.
+/// Budget settings, reusable meal templates, saved/proposed meal plans, and
+/// standalone price tracking in one screen — following the same "one
+/// screen, no chat UI, list + simple forms" convention as
+/// `ReadinessCheckInScreen`/`CoachRecommendationsScreen` for a fast-track
+/// feature of this scope.
 ///
 /// AI-proposed plans land here as `mealPlans` documents too (written only
 /// via the coach `handleCommand` approve flow, never directly by this
 /// screen) — this view does not distinguish source in its list beyond the
 /// small "AI proposed" label, since both paths went through the same
 /// deterministic calculator.
+///
+/// Price tracking (the "Prices" section) is deliberately a standalone
+/// "what did this cost over time" record via `PriceRepository`/
+/// `ManualPriceProvider` — it is NOT wired into template cost entry, which
+/// stays a manually-typed number. See docs/superpowers/ISSUES.md, Phase 8
+/// item 7: composing template cost from priced ingredients would edge
+/// toward recipe-builder scope, which is explicitly out of scope.
 class MealPlanningScreen extends StatefulWidget {
   const MealPlanningScreen({
     super.key,
@@ -30,6 +40,7 @@ class MealPlanningScreen extends StatefulWidget {
     required this.budgetRepository,
     required this.templateRepository,
     required this.planRepository,
+    required this.priceRepository,
     required this.coachService,
   });
 
@@ -37,6 +48,7 @@ class MealPlanningScreen extends StatefulWidget {
   final BudgetRepository budgetRepository;
   final MealTemplateRepository templateRepository;
   final MealPlanRepository planRepository;
+  final PriceRepository priceRepository;
 
   /// Used only by the "Ask coach to propose a plan" action, which calls
   /// `CoachService.generateMealPlanRecommendation` and then hands the user
@@ -52,6 +64,7 @@ class _MealPlanningScreenState extends State<MealPlanningScreen> {
   BudgetSettings? _budget;
   List<MealTemplate> _templates = [];
   List<MealPlan> _plans = [];
+  List<PriceSnapshot> _prices = [];
   bool _loading = true;
   bool _askingCoach = false;
   String? _error;
@@ -68,11 +81,13 @@ class _MealPlanningScreenState extends State<MealPlanningScreen> {
       final budget = await widget.budgetRepository.get(widget.uid);
       final templates = await widget.templateRepository.list(widget.uid);
       final plans = await widget.planRepository.list(widget.uid);
+      final prices = await widget.priceRepository.listAll(widget.uid);
       if (!mounted) return;
       setState(() {
         _budget = budget;
         _templates = templates;
         _plans = plans;
+        _prices = prices;
         _loading = false;
       });
     } catch (error) {
@@ -101,6 +116,71 @@ class _MealPlanningScreenState extends State<MealPlanningScreen> {
     );
     if (result == null) return;
     await widget.templateRepository.create(widget.uid, result);
+    await _load();
+  }
+
+  Future<void> _editTemplate(MealTemplate template) async {
+    final result = await showDialog<MealTemplate>(
+      context: context,
+      builder: (context) => _TemplateEditorDialog(initial: template),
+    );
+    if (result == null) return;
+    await widget.templateRepository.update(widget.uid, result);
+    await _load();
+  }
+
+  Future<void> _deleteTemplate(MealTemplate template) async {
+    final confirmed = await _confirmDelete(
+      title: 'Delete template?',
+      message: 'This removes "${template.name}" — it will no longer be usable for new plans.',
+    );
+    if (!confirmed) return;
+    await widget.templateRepository.delete(widget.uid, template.id);
+    await _load();
+  }
+
+  Future<void> _deletePlan(MealPlan plan) async {
+    final confirmed = await _confirmDelete(
+      title: 'Delete plan?',
+      message: 'This removes "${plan.name}" permanently.',
+    );
+    if (!confirmed) return;
+    await widget.planRepository.delete(widget.uid, plan.id);
+    await _load();
+  }
+
+  Future<bool> _confirmDelete({required String title, required String message}) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Delete')),
+        ],
+      ),
+    );
+    return confirmed ?? false;
+  }
+
+  /// Records a manually-entered price snapshot — the only price path this
+  /// screen exercises (live providers are `UnavailableLivePriceProvider`
+  /// only, per Phase 8 scope). Persisted standalone via `PriceRepository`,
+  /// never composed into a template's cost.
+  Future<void> _recordPrice() async {
+    final result = await showDialog<_PriceDraft>(
+      context: context,
+      builder: (context) => _PriceEditorDialog(defaultCurrency: _budget?.currency ?? 'USD'),
+    );
+    if (result == null) return;
+    final quote = await ManualPriceProvider(manualPrice: result.price).getPrice(
+      itemName: result.itemName,
+      unit: result.unit,
+      quantity: result.quantity,
+      currency: result.currency,
+    );
+    await widget.priceRepository.record(widget.uid, quote.toSnapshot(''));
     await _load();
   }
 
@@ -160,7 +240,14 @@ class _MealPlanningScreenState extends State<MealPlanningScreen> {
                     ],
                     _BudgetCard(budget: _budget, onEdit: _editBudget),
                     const SizedBox(height: 16),
-                    _TemplatesCard(templates: _templates, onAdd: _addTemplate),
+                    _TemplatesCard(
+                      templates: _templates,
+                      onAdd: _addTemplate,
+                      onEdit: _editTemplate,
+                      onDelete: _deleteTemplate,
+                    ),
+                    const SizedBox(height: 16),
+                    _PricesCard(prices: _prices, onAdd: _recordPrice),
                     const SizedBox(height: 16),
                     GlassCard(
                       child: Column(
@@ -189,7 +276,7 @@ class _MealPlanningScreenState extends State<MealPlanningScreen> {
                       ..._plans.map(
                         (plan) => Padding(
                           padding: const EdgeInsets.only(bottom: 16),
-                          child: _PlanCard(plan: plan),
+                          child: _PlanCard(plan: plan, onDelete: () => _deletePlan(plan)),
                         ),
                       ),
                   ],
@@ -232,10 +319,17 @@ class _BudgetCard extends StatelessWidget {
 }
 
 class _TemplatesCard extends StatelessWidget {
-  const _TemplatesCard({required this.templates, required this.onAdd});
+  const _TemplatesCard({
+    required this.templates,
+    required this.onAdd,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
   final List<MealTemplate> templates;
   final VoidCallback onAdd;
+  final ValueChanged<MealTemplate> onEdit;
+  final ValueChanged<MealTemplate> onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -251,10 +345,26 @@ class _TemplatesCard extends StatelessWidget {
             ...templates.map(
               (template) => Padding(
                 padding: const EdgeInsets.only(top: 6),
-                child: Text(
-                  '${template.name} — ${_costLabel(template.costPerServing, template.currency, template.costSource)}, '
-                  '${template.caloriesPerServing.toStringAsFixed(0)} kcal, '
-                  '${template.proteinGPerServing.toStringAsFixed(0)}g protein',
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '${template.name} — ${_costLabel(template.costPerServing, template.currency, template.costSource)}, '
+                        '${template.caloriesPerServing.toStringAsFixed(0)} kcal, '
+                        '${template.proteinGPerServing.toStringAsFixed(0)}g protein',
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.edit, size: 20),
+                      tooltip: 'Edit ${template.name}',
+                      onPressed: () => onEdit(template),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete, size: 20),
+                      tooltip: 'Delete ${template.name}',
+                      onPressed: () => onDelete(template),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -266,10 +376,69 @@ class _TemplatesCard extends StatelessWidget {
   }
 }
 
+class _PricesCard extends StatelessWidget {
+  const _PricesCard({required this.prices, required this.onAdd});
+
+  final List<PriceSnapshot> prices;
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Prices', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          const Text(
+            'Track what things cost over time — a standalone record, separate from a '
+            "template's per-serving cost.",
+          ),
+          const SizedBox(height: 8),
+          if (prices.isEmpty)
+            const Text('No prices recorded yet.')
+          else
+            ...prices.map(
+              (snapshot) => Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  '${snapshot.itemName} — ${_priceLabel(snapshot)}, '
+                  '${snapshot.quantity.toStringAsFixed(snapshot.quantity.truncateToDouble() == snapshot.quantity ? 0 : 2)} '
+                  '${snapshot.unit}, ${_sourceLabel(snapshot.source)}, ${_dateLabel(snapshot.timestamp)}',
+                ),
+              ),
+            ),
+          const SizedBox(height: 12),
+          PrimaryButton(label: 'Record a price', onPressed: onAdd),
+        ],
+      ),
+    );
+  }
+
+  String _priceLabel(PriceSnapshot snapshot) {
+    final price = snapshot.price;
+    return price != null ? '${price.toStringAsFixed(2)} ${snapshot.currency}' : 'price unavailable';
+  }
+
+  String _sourceLabel(PriceSource source) {
+    return switch (source) {
+      PriceSource.manual => 'manual',
+      PriceSource.live => 'live',
+      PriceSource.estimated => 'estimated',
+      PriceSource.unavailable => 'unavailable',
+    };
+  }
+
+  String _dateLabel(DateTime timestamp) {
+    return '${timestamp.year}-${timestamp.month.toString().padLeft(2, '0')}-${timestamp.day.toString().padLeft(2, '0')}';
+  }
+}
+
 class _PlanCard extends StatelessWidget {
-  const _PlanCard({required this.plan});
+  const _PlanCard({required this.plan, required this.onDelete});
 
   final MealPlan plan;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -285,6 +454,11 @@ class _PlanCard extends StatelessWidget {
                   padding: EdgeInsets.only(left: 8),
                   child: Text('AI proposed', style: TextStyle(color: AppColors.accentViolet, fontSize: 12)),
                 ),
+              IconButton(
+                icon: const Icon(Icons.delete, size: 20),
+                tooltip: 'Delete ${plan.name}',
+                onPressed: onDelete,
+              ),
             ],
           ),
           Text('${plan.periodType.name} plan'),
@@ -409,25 +583,32 @@ class _BudgetEditorDialogState extends State<_BudgetEditorDialog> {
 }
 
 class _TemplateEditorDialog extends StatefulWidget {
-  const _TemplateEditorDialog();
+  const _TemplateEditorDialog({this.initial});
+
+  /// When set, the dialog pre-fills from this template and the saved result
+  /// carries the same [MealTemplate.id] so the caller can `update` rather
+  /// than `create`.
+  final MealTemplate? initial;
 
   @override
   State<_TemplateEditorDialog> createState() => _TemplateEditorDialogState();
 }
 
 class _TemplateEditorDialogState extends State<_TemplateEditorDialog> {
-  final _name = TextEditingController();
-  final _calories = TextEditingController();
-  final _protein = TextEditingController();
-  final _carbs = TextEditingController();
-  final _fat = TextEditingController();
-  final _cost = TextEditingController();
-  final _currency = TextEditingController(text: 'USD');
+  late final _name = TextEditingController(text: widget.initial?.name ?? '');
+  late final _calories =
+      TextEditingController(text: widget.initial?.caloriesPerServing.toString() ?? '');
+  late final _protein =
+      TextEditingController(text: widget.initial?.proteinGPerServing.toString() ?? '');
+  late final _carbs = TextEditingController(text: widget.initial?.carbsGPerServing.toString() ?? '');
+  late final _fat = TextEditingController(text: widget.initial?.fatGPerServing.toString() ?? '');
+  late final _cost = TextEditingController(text: widget.initial?.costPerServing?.toString() ?? '');
+  late final _currency = TextEditingController(text: widget.initial?.currency ?? 'USD');
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('New meal template'),
+      title: Text(widget.initial == null ? 'New meal template' : 'Edit meal template'),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -470,9 +651,9 @@ class _TemplateEditorDialogState extends State<_TemplateEditorDialog> {
             final cost = double.tryParse(_cost.text.trim());
             Navigator.of(context).pop(
               MealTemplate(
-                id: '',
+                id: widget.initial?.id ?? '',
                 name: _name.text.trim(),
-                servings: 1,
+                servings: widget.initial?.servings ?? 1,
                 caloriesPerServing: double.tryParse(_calories.text.trim()) ?? 0,
                 proteinGPerServing: double.tryParse(_protein.text.trim()) ?? 0,
                 carbsGPerServing: double.tryParse(_carbs.text.trim()) ?? 0,
@@ -484,7 +665,96 @@ class _TemplateEditorDialogState extends State<_TemplateEditorDialog> {
               ),
             );
           },
-          child: const Text('Add'),
+          child: Text(widget.initial == null ? 'Add' : 'Save'),
+        ),
+      ],
+    );
+  }
+}
+
+class _PriceDraft {
+  const _PriceDraft({
+    required this.itemName,
+    required this.price,
+    required this.unit,
+    required this.quantity,
+    required this.currency,
+  });
+
+  final String itemName;
+  final double price;
+  final String unit;
+  final double quantity;
+  final String currency;
+}
+
+class _PriceEditorDialog extends StatefulWidget {
+  const _PriceEditorDialog({required this.defaultCurrency});
+
+  final String defaultCurrency;
+
+  @override
+  State<_PriceEditorDialog> createState() => _PriceEditorDialogState();
+}
+
+class _PriceEditorDialogState extends State<_PriceEditorDialog> {
+  final _itemName = TextEditingController();
+  final _price = TextEditingController();
+  final _unit = TextEditingController(text: 'each');
+  final _quantity = TextEditingController(text: '1');
+  late final TextEditingController _currency = TextEditingController(text: widget.defaultCurrency);
+  String? _validationError;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Record a price'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: _itemName, decoration: const InputDecoration(labelText: 'Item name')),
+            TextField(
+              controller: _price,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(labelText: 'Price'),
+            ),
+            TextField(controller: _unit, decoration: const InputDecoration(labelText: 'Unit (e.g. kg, each, lb)')),
+            TextField(
+              controller: _quantity,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(labelText: 'Quantity this price covers'),
+            ),
+            TextField(controller: _currency, decoration: const InputDecoration(labelText: 'Currency')),
+            if (_validationError != null) ...[
+              const SizedBox(height: 8),
+              Text(_validationError!, style: const TextStyle(color: AppColors.error)),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+        TextButton(
+          onPressed: () {
+            final itemName = _itemName.text.trim();
+            final price = double.tryParse(_price.text.trim());
+            final quantity = double.tryParse(_quantity.text.trim());
+            if (itemName.isEmpty || price == null || quantity == null || quantity <= 0) {
+              setState(() => _validationError = 'Enter an item name, a price, and a positive quantity.');
+              return;
+            }
+            Navigator.of(context).pop(
+              _PriceDraft(
+                itemName: itemName,
+                price: price,
+                unit: _unit.text.trim().isEmpty ? 'each' : _unit.text.trim(),
+                quantity: quantity,
+                currency: _currency.text.trim().isEmpty ? 'USD' : _currency.text.trim(),
+              ),
+            );
+          },
+          child: const Text('Save'),
         ),
       ],
     );
