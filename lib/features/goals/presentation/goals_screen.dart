@@ -97,6 +97,56 @@ class _GoalsScreenState extends State<GoalsScreen> {
     widget.onChanged();
   }
 
+  Future<void> _archive(FitnessGoal goal) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Archive goal?'),
+        content: Text(
+          '"${goal.name}" will be archived and no longer count toward your active goals.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Archive', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() {
+      _goals = [
+        for (final existing in _goals)
+          if (existing.id == goal.id)
+            FitnessGoal(
+              id: existing.id,
+              name: existing.name,
+              category: existing.category,
+              status: GoalStatus.archived,
+              priority: existing.priority,
+              targetValue: existing.targetValue,
+              unit: existing.unit,
+              baselineValue: existing.baselineValue,
+              currentValue: existing.currentValue,
+              targetDate: existing.targetDate,
+              createdAt: existing.createdAt,
+              updatedAt: DateTime.now(),
+              metadata: existing.metadata,
+            )
+          else
+            existing,
+      ];
+    });
+
+    await widget.repository.archiveGoal(widget.uid, goal.id);
+    widget.onChanged();
+  }
+
   Future<void> _pickTargetDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -122,7 +172,8 @@ class _GoalsScreenState extends State<GoalsScreen> {
                   if (_goals.isNotEmpty) ...[
                     Text('Your goals', style: textTheme.headlineMedium),
                     const SizedBox(height: 12),
-                    for (final goal in _goals) _GoalListItem(goal: goal),
+                    for (final goal in _goals)
+                      _GoalListItem(goal: goal, onArchive: () => _archive(goal)),
                     const SizedBox(height: 24),
                   ],
                   GlassCard(
@@ -207,33 +258,46 @@ class _GoalsScreenState extends State<GoalsScreen> {
 }
 
 class _GoalListItem extends StatelessWidget {
-  const _GoalListItem({required this.goal});
+  const _GoalListItem({required this.goal, required this.onArchive});
 
   final FitnessGoal goal;
+  final VoidCallback onArchive;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final isArchived = goal.status == GoalStatus.archived;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: GlassCard(
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(goal.name, style: textTheme.bodyLarge),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${goal.category.name} • ${goal.status.name}',
-                    style: textTheme.bodyMedium,
-                  ),
-                ],
+      child: Opacity(
+        opacity: isArchived ? 0.5 : 1.0,
+        child: GlassCard(
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(goal.name, style: textTheme.bodyLarge),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${goal.category.name} • ${goal.status.name}',
+                      style: textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
               ),
-            ),
-            _StatusDot(status: goal.status),
-          ],
+              _StatusDot(status: goal.status),
+              if (!isArchived)
+                IconButton(
+                  key: Key('goalArchiveButton_${goal.id}'),
+                  icon: const Icon(Icons.archive_outlined),
+                  color: AppColors.textSecondary,
+                  tooltip: 'Archive goal',
+                  onPressed: onArchive,
+                ),
+            ],
+          ),
         ),
       ),
     );

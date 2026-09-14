@@ -506,3 +506,26 @@ pre-existing `prefer_initializing_formals` infos in `body_composition`/
    `firebase deploy` command and Xcode signing/device steps — no
    `firebase deploy` was run and no device-install/code-signing was
    attempted, per the plan's constraints.
+
+---
+
+## Post-audit wiring
+
+Follow-ups from an over-engineering audit that flagged repository methods
+implemented but never called from any screen — fixed by wiring them into
+the UI (not deleting), since the underlying behavior is wanted.
+
+- **`GoalRepository.archiveGoal`** (`lib/features/goals/data/goal_repository.dart`)
+  was implemented but only ever invoked internally, via
+  `_archiveOtherActivePrimaryGoals` as a side effect of `updateGoal`/
+  `createGoal` — there was no direct, user-initiated way to archive a
+  goal. Added an explicit "Archive" action to each goal card in
+  `lib/features/goals/presentation/goals_screen.dart` (matching the
+  existing `IconButton` archive-action convention already used on
+  `HabitsScreen`), gated behind a confirm dialog since archiving isn't
+  reversible from this UI. Archived goals stay in the (unfiltered) list —
+  matching the screen's existing convention of showing all statuses — but
+  are dimmed and lose the archive action once archived. Covered by a new
+  widget test in `test/features/goals/presentation/goals_screen_test.dart`
+  asserting the confirm/cancel path and that confirming calls
+  `archiveGoal` and updates the goal's status.

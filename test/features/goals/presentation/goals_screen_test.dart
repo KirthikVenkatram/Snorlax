@@ -64,4 +64,46 @@ void main() {
     expect(find.textContaining('performance'), findsOneWidget);
     expect(find.textContaining('active'), findsWidgets);
   });
+
+  testWidgets('archiving a goal confirms then calls archiveGoal and updates status', (
+    tester,
+  ) async {
+    final repository = GoalRepository(firestore: FakeFirebaseFirestore());
+    await repository.createGoal(
+      'u',
+      FitnessGoal(
+        id: 'g1',
+        name: 'Bench 100kg',
+        category: GoalCategory.performance,
+        status: GoalStatus.active,
+        priority: 1,
+        createdAt: DateTime(2026, 8, 1),
+        updatedAt: DateTime(2026, 8, 1),
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: GoalsScreen(uid: 'u', repository: repository, onChanged: () {})),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('goalArchiveButton_g1')));
+    await tester.pumpAndSettle();
+
+    // Confirmation dialog appears; cancelling leaves the goal untouched.
+    expect(find.text('Archive goal?'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect((await repository.listGoals('u')).single.status, GoalStatus.active);
+
+    await tester.tap(find.byKey(const Key('goalArchiveButton_g1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Archive'));
+    await tester.pumpAndSettle();
+
+    expect((await repository.listGoals('u')).single.status, GoalStatus.archived);
+    expect(find.textContaining('archived'), findsWidgets);
+    // Archived goals no longer show an archive action.
+    expect(find.byKey(const Key('goalArchiveButton_g1')), findsNothing);
+  });
 }
