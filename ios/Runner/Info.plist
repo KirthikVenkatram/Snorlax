@@ -4,12 +4,20 @@
 	<dict>
 		<key>CADisableMinimumFrameDurationOnPhone</key>
 		<true/>
+		<key>GIDClientID</key>
+		<string>726263813003-rbclnknf08qc7j9er7i00ev2sgq8f3dv.apps.googleusercontent.com</string>
 		<key>CFBundleURLTypes</key>
 		<array>
 			<dict>
 				<key>CFBundleURLSchemes</key>
 				<array>
 					<string>fitnesstracker</string>
+				</array>
+			</dict>
+			<dict>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>com.googleusercontent.apps.726263813003-rbclnknf08qc7j9er7i00ev2sgq8f3dv</string>
 				</array>
 			</dict>
 		</array>

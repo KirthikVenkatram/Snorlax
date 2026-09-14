@@ -96,7 +96,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           );
         },
       ),
-      GoRoute(path: '/dashboard', builder: (context, state) => const DashboardScreen()),
+      GoRoute(
+        path: '/dashboard',
+        builder: (context, state) {
+          final uid = ref.read(firebaseAuthProvider).currentUser!.uid;
+          return DashboardScreen(
+            uid: uid,
+            nutritionRepository: ref.read(nutritionRepositoryProvider),
+            adherenceRepository: ref.read(adherenceRepositoryProvider),
+          );
+        },
+      ),
       GoRoute(
         path: '/settings',
         builder: (context, state) {
