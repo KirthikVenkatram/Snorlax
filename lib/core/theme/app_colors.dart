@@ -18,4 +18,22 @@ class AppColors {
   static const textSecondary = Color(0xFFA0A0B2);
 
   static const celebrationGradient = [accentViolet, accentBlue, accentGreen];
+
+  /// Diagonal near-black gradient used as the base fill for cards, instead
+  /// of a flat color — a single flat dark fill reads noticeably flatter
+  /// than a subtle gradient once placed next to a real glow.
+  static const surfaceGradient = LinearGradient(
+    colors: [Color(0xFF1A1A24), Color(0xFF101018)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  /// Hairline border gradient: brighter where the light would hit (top
+  /// left), fading to near-invisible — reads as a lit edge rather than a
+  /// flat outline.
+  static const cardStroke = LinearGradient(
+    colors: [Color(0x33FFFFFF), Color(0x0DFFFFFF)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
 }

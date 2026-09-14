@@ -171,6 +171,8 @@ class _NutritionHomeScreenState extends State<NutritionHomeScreen> {
                           ? 0.0
                           : (totalCalories / goals.dailyCalories).clamp(0.0, 1.0);
                       return GlassCard(
+                        hero: true,
+                        glowColor: AppColors.accentGreen,
                         child: Column(
                           children: [
                             ProgressRing(

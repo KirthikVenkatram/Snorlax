@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/glass_card.dart';
 import '../../../core/widgets/progress_ring.dart';
+import '../../../core/widgets/section_label.dart';
 import '../../adherence/data/adherence_repository.dart';
 import '../../nutrition/data/nutrition_repository.dart';
 
@@ -130,7 +131,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   const SizedBox(height: 32),
                   for (final (title, items) in _sections) ...[
-                    _SectionHeader(title),
+                    SectionLabel(title),
                     const SizedBox(height: 8),
                     _NavGroup(items: items),
                     const SizedBox(height: 24),
@@ -174,6 +175,7 @@ class _HeroStatsRow extends StatelessWidget {
             ),
             caption: calorieGoal == null ? 'Set a calorie goal' : 'of ${calorieGoal.round()} kcal',
             onTap: () => GoRouter.of(context).push('/nutrition'),
+            glowColor: AppColors.accentGreen,
           ),
         ),
         const SizedBox(width: 16),
@@ -192,6 +194,7 @@ class _HeroStatsRow extends StatelessWidget {
             ),
             caption: adherence == null ? 'No data yet' : 'adherence',
             onTap: () => GoRouter.of(context).push('/adherence'),
+            glowColor: AppColors.accentBlue,
           ),
         ),
       ],
@@ -205,12 +208,14 @@ class _HeroStatCard extends StatelessWidget {
     required this.ring,
     required this.caption,
     required this.onTap,
+    required this.glowColor,
   });
 
   final String label;
   final Widget ring;
   final String caption;
   final VoidCallback onTap;
+  final Color glowColor;
 
   @override
   Widget build(BuildContext context) {
@@ -218,6 +223,8 @@ class _HeroStatCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(20),
       onTap: onTap,
       child: GlassCard(
+        hero: true,
+        glowColor: glowColor,
         child: Column(
           children: [
             Align(
@@ -239,23 +246,6 @@ class _HeroStatCard extends StatelessWidget {
   }
 }
 
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader(this.title);
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      title,
-      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.2,
-          ),
-    );
-  }
-}
-
 class _NavGroup extends StatelessWidget {
   const _NavGroup({required this.items});
 
@@ -267,9 +257,9 @@ class _NavGroup extends StatelessWidget {
       borderRadius: BorderRadius.circular(20),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          gradient: AppColors.surfaceGradient,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+          border: Border.fromBorderSide(const BorderSide(color: Color(0x0FFFFFFF))),
         ),
         child: Column(
           children: [
