@@ -8,11 +8,14 @@ class AppColors {
   static const surface = Color(0xFF15151F);
   static const surfaceGlass = Color(0x1AFFFFFF); // translucent white for glass cards
 
-  static const accentBlue = Color(0xFF3D5AFE);
-  static const accentViolet = Color(0xFF9C4DFF);
-  static const accentGreen = Color(0xFF00E5A0);
-  static const accentAmber = Color(0xFFFFC24D);
-  static const error = Color(0xFFFF5C7A);
+  // Cyberpunk-neon accent trio (retinted from the original blue/violet/teal
+  // set — the token names stayed put to avoid a repo-wide rename, but the
+  // hues are now hot magenta / crimson / acid green).
+  static const accentBlue = Color(0xFFFF2E9A); // primary accent: neon magenta
+  static const accentViolet = Color(0xFFFF2A4D); // neon crimson red
+  static const accentGreen = Color(0xFF00FF9C); // brighter acid green
+  static const accentAmber = Color(0xFFFFD23F); // neon yellow
+  static const error = Color(0xFFFF3B30); // true red, kept distinct from the accents above
 
   static const textPrimary = Color(0xFFF5F5FA);
   static const textSecondary = Color(0xFFA0A0B2);
@@ -30,9 +33,10 @@ class AppColors {
 
   /// Hairline border gradient: brighter where the light would hit (top
   /// left), fading to near-invisible — reads as a lit edge rather than a
-  /// flat outline.
+  /// flat outline. Faintly magenta-tinted rather than pure white, so the
+  /// edge itself reads as neon rather than generic "glass."
   static const cardStroke = LinearGradient(
-    colors: [Color(0x33FFFFFF), Color(0x0DFFFFFF)],
+    colors: [Color(0x40FF2E9A), Color(0x0DFFFFFF)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );

@@ -28,4 +28,20 @@ class AppTypography {
           color: AppColors.textSecondary,
         ),
       );
+
+  /// A monospace "HUD" voice for tracked labels and technical readouts —
+  /// distinct from the sans body text, reserved for things that should read
+  /// like a readout (section labels, stat captions) rather than prose.
+  static TextStyle mono({
+    double fontSize = 12,
+    FontWeight fontWeight = FontWeight.w600,
+    Color color = AppColors.textSecondary,
+    double letterSpacing = 1.5,
+  }) =>
+      GoogleFonts.jetBrainsMono(
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        color: color,
+        letterSpacing: letterSpacing,
+      );
 }

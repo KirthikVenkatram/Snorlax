@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/glass_card.dart';
 import '../../../core/widgets/progress_ring.dart';
@@ -19,59 +18,31 @@ class _DashboardStats {
   final double? weeklyAdherence;
 }
 
-class _NavItem {
-  const _NavItem(this.icon, this.label, this.color, this.route);
-
-  final IconData icon;
-  final String label;
-  final Color color;
-  final String route;
-}
-
-const _sections = <(String, List<_NavItem>)>[
-  (
-    'Track',
-    [
-      _NavItem(Icons.restaurant_outlined, 'Nutrition', AppColors.accentGreen, '/nutrition'),
-      _NavItem(Icons.fitness_center_outlined, 'Workouts', AppColors.accentBlue, '/workouts'),
-      _NavItem(Icons.monitor_weight_outlined, 'Body composition', AppColors.accentViolet, '/body'),
-      _NavItem(Icons.checklist_outlined, 'Habits', AppColors.accentAmber, '/habits'),
-    ],
-  ),
-  (
-    'Insights',
-    [
-      _NavItem(Icons.insights_outlined, 'Adherence', AppColors.accentBlue, '/adherence'),
-      _NavItem(Icons.bedtime_outlined, 'Readiness', AppColors.accentViolet, '/readiness'),
-      _NavItem(Icons.auto_awesome_outlined, 'AI Coach', AppColors.accentAmber, '/coach'),
-    ],
-  ),
-  (
-    'Plan',
-    [
-      _NavItem(Icons.flag_outlined, 'Goals', AppColors.accentGreen, '/goals'),
-      _NavItem(Icons.receipt_long_outlined, 'Meal planning', AppColors.accentBlue, '/meal-planning'),
-    ],
-  ),
-];
-
-class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({
+/// The Home tab: today's headline stats plus quick actions into the other
+/// tabs. Kept lean on purpose — everything else lives one tap away in its
+/// own tab, or in More.
+class HomeTab extends StatefulWidget {
+  const HomeTab({
     super.key,
     required this.uid,
     required this.nutritionRepository,
     required this.adherenceRepository,
+    required this.onNavigateToTab,
   });
 
   final String uid;
   final NutritionRepository nutritionRepository;
   final AdherenceRepository adherenceRepository;
 
+  /// Switches the enclosing [AppShell] to another tab by index
+  /// (0=Home, 1=Nutrition, 2=Train, 3=Coach, 4=More).
+  final ValueChanged<int> onNavigateToTab;
+
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
+  State<HomeTab> createState() => _HomeTabState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _HomeTabState extends State<HomeTab> {
   late Future<_DashboardStats> _statsFuture;
 
   @override
@@ -110,32 +81,52 @@ class _DashboardScreenState extends State<DashboardScreen> {
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
-            SliverAppBar.large(
-              title: Text(_greeting),
-              actions: [
-                IconButton(
-                  key: const Key('settingsButton'),
-                  icon: const Icon(Icons.settings_outlined),
-                  tooltip: 'Settings',
-                  onPressed: () => GoRouter.of(context).push('/settings'),
-                ),
-              ],
-            ),
+            SliverAppBar.large(title: Text(_greeting)),
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
                   FutureBuilder<_DashboardStats>(
                     future: _statsFuture,
-                    builder: (context, snapshot) => _HeroStatsRow(stats: snapshot.data),
+                    builder: (context, snapshot) => _HeroStatsRow(
+                      stats: snapshot.data,
+                      onOpenNutrition: () => widget.onNavigateToTab(1),
+                      onOpenCoach: () => widget.onNavigateToTab(3),
+                    ),
                   ),
                   const SizedBox(height: 32),
-                  for (final (title, items) in _sections) ...[
-                    SectionLabel(title),
-                    const SizedBox(height: 8),
-                    _NavGroup(items: items),
-                    const SizedBox(height: 24),
-                  ],
+                  const SectionLabel('Quick actions'),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _QuickAction(
+                          icon: Icons.restaurant_outlined,
+                          label: 'Log food',
+                          color: AppColors.accentGreen,
+                          onTap: () => widget.onNavigateToTab(1),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _QuickAction(
+                          icon: Icons.fitness_center_outlined,
+                          label: 'Log workout',
+                          color: AppColors.accentViolet,
+                          onTap: () => widget.onNavigateToTab(2),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _QuickAction(
+                          icon: Icons.auto_awesome_outlined,
+                          label: 'Ask coach',
+                          color: AppColors.accentAmber,
+                          onTap: () => widget.onNavigateToTab(3),
+                        ),
+                      ),
+                    ],
+                  ),
                 ]),
               ),
             ),
@@ -147,9 +138,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
 }
 
 class _HeroStatsRow extends StatelessWidget {
-  const _HeroStatsRow({required this.stats});
+  const _HeroStatsRow({
+    required this.stats,
+    required this.onOpenNutrition,
+    required this.onOpenCoach,
+  });
 
   final _DashboardStats? stats;
+  final VoidCallback onOpenNutrition;
+  final VoidCallback onOpenCoach;
 
   @override
   Widget build(BuildContext context) {
@@ -174,7 +171,7 @@ class _HeroStatsRow extends StatelessWidget {
               ),
             ),
             caption: calorieGoal == null ? 'Set a calorie goal' : 'of ${calorieGoal.round()} kcal',
-            onTap: () => GoRouter.of(context).push('/nutrition'),
+            onTap: onOpenNutrition,
             glowColor: AppColors.accentGreen,
           ),
         ),
@@ -193,7 +190,7 @@ class _HeroStatsRow extends StatelessWidget {
               ),
             ),
             caption: adherence == null ? 'No data yet' : 'adherence',
-            onTap: () => GoRouter.of(context).push('/adherence'),
+            onTap: onOpenCoach,
             glowColor: AppColors.accentBlue,
           ),
         ),
@@ -246,62 +243,36 @@ class _HeroStatCard extends StatelessWidget {
   }
 }
 
-class _NavGroup extends StatelessWidget {
-  const _NavGroup({required this.items});
+class _QuickAction extends StatelessWidget {
+  const _QuickAction({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
 
-  final List<_NavItem> items;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: AppColors.surfaceGradient,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.fromBorderSide(const BorderSide(color: Color(0x0FFFFFFF))),
-        ),
-        child: Column(
-          children: [
-            for (var i = 0; i < items.length; i++) ...[
-              _NavRow(item: items[i]),
-              if (i != items.length - 1)
-                const Divider(height: 1, indent: 68, color: Colors.white12),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _NavRow extends StatelessWidget {
-  const _NavRow({required this.item});
-
-  final _NavItem item;
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () => GoRouter.of(context).push(item.route),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
+      borderRadius: BorderRadius.circular(20),
+      onTap: onTap,
+      child: GlassCard(
+        glowColor: color,
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+        child: Column(
           children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: item.color.withValues(alpha: 0.18),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(item.icon, size: 18, color: item.color),
+            Icon(icon, color: color, size: 22),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 12),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(item.label, style: Theme.of(context).textTheme.bodyLarge),
-            ),
-            const Icon(Icons.chevron_right, size: 20, color: AppColors.textSecondary),
           ],
         ),
       ),

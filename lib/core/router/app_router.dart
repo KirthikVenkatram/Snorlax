@@ -14,7 +14,9 @@ import '../../features/body_composition/presentation/body_composition_providers.
 import '../../features/body_composition/presentation/body_composition_screen.dart';
 import '../../features/coach/presentation/coach_providers.dart';
 import '../../features/coach/presentation/coach_recommendations_screen.dart';
-import '../../features/dashboard/presentation/dashboard_screen.dart';
+import '../../features/dashboard/presentation/app_shell.dart';
+import '../../features/dashboard/presentation/home_tab.dart';
+import '../../features/dashboard/presentation/more_tab.dart';
 import '../../features/goals/presentation/goal_providers.dart';
 import '../../features/goals/presentation/goals_screen.dart';
 import '../../features/habits/presentation/habit_providers.dart';
@@ -101,10 +103,30 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/dashboard',
         builder: (context, state) {
           final uid = ref.read(firebaseAuthProvider).currentUser!.uid;
-          return DashboardScreen(
-            uid: uid,
-            nutritionRepository: ref.read(nutritionRepositoryProvider),
-            adherenceRepository: ref.read(adherenceRepositoryProvider),
+          return AppShell(
+            homeBuilder: (onNavigateToTab) => HomeTab(
+              uid: uid,
+              nutritionRepository: ref.read(nutritionRepositoryProvider),
+              adherenceRepository: ref.read(adherenceRepositoryProvider),
+              onNavigateToTab: onNavigateToTab,
+            ),
+            nutrition: NutritionHomeScreen(
+              uid: uid,
+              nutritionRepository: ref.read(nutritionRepositoryProvider),
+              searchService: ref.read(foodSearchServiceProvider),
+              userProfileRepository: ref.read(userProfileRepositoryProvider),
+            ),
+            train: WorkoutsHomeScreen(
+              uid: uid,
+              workoutRepository: ref.read(workoutRepositoryProvider),
+              exerciseRepository: ref.read(exerciseLibraryRepositoryProvider),
+              stravaRepository: ref.read(stravaConnectionRepositoryProvider),
+            ),
+            coach: CoachRecommendationsScreen(
+              uid: uid,
+              service: ref.read(coachServiceProvider),
+            ),
+            more: const MoreTab(),
           );
         },
       ),

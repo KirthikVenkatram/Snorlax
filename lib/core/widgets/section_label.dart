@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_typography.dart';
 
-/// A small tracked-uppercase label used above a group of content — gives
-/// sections a consistent, deliberate hierarchy marker instead of relying on
-/// heading size alone. Optional trailing [accessory] (e.g. a "See all"
-/// action or a value chip) floats to the right.
+/// A small tracked-uppercase HUD-style label used above a group of content
+/// — bracketed like a readout, gives sections a consistent, deliberate
+/// hierarchy marker instead of relying on heading size alone. Optional
+/// trailing [accessory] (e.g. a "See all" action or a value chip) floats to
+/// the right.
 class SectionLabel extends StatelessWidget {
   const SectionLabel(this.title, {super.key, this.color = AppColors.accentBlue, this.accessory});
 
@@ -18,13 +20,8 @@ class SectionLabel extends StatelessWidget {
       children: [
         Expanded(
           child: Text(
-            title.toUpperCase(),
-            style: TextStyle(
-              color: color,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 2.0,
-            ),
+            '// ${title.toUpperCase()}',
+            style: AppTypography.mono(color: color),
           ),
         ),
         ?accessory,
