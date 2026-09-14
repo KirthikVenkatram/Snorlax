@@ -24,6 +24,9 @@ void main() {
         home: ProgressRing(progress: 1.5, color: AppColors.accentGreen),
       ),
     );
+    // The ring animates toward its target value rather than jumping
+    // instantly, so let that animation finish before asserting.
+    await tester.pumpAndSettle();
 
     final indicator = tester.widget<CircularProgressIndicator>(
       find.byType(CircularProgressIndicator),

@@ -6,10 +6,9 @@ import '../theme/app_colors.dart';
 /// [glowColor] + a lit hairline edge, on top of a real backdrop blur. Used
 /// across everyday (non-celebratory) screens.
 ///
-/// [hero] makes the glow brighter and larger — reserved for the one card at
-/// the top of a screen that should read as the page's headline surface
-/// (e.g. a dashboard's stat row), matching how the rest of the app treats a
-/// hero differently from an ordinary content card.
+/// [hero] makes the glow brighter and larger, and gives it a slow "breathing"
+/// pulse — reserved for the one card at the top of a screen that should read
+/// as the page's headline surface (e.g. a dashboard's stat row).
 class GlassCard extends StatelessWidget {
   const GlassCard({
     super.key,
@@ -49,19 +48,13 @@ class GlassCard extends StatelessWidget {
               child: Stack(
                 children: [
                   Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(innerRadius),
-                        gradient: RadialGradient(
-                          colors: [
-                            glowColor.withValues(alpha: hero ? 0.16 : 0.08),
-                            glowColor.withValues(alpha: 0.0),
-                          ],
-                          center: Alignment.topLeft,
-                          radius: hero ? 1.4 : 1.0,
-                        ),
-                      ),
-                    ),
+                    // Only hero cards get the animated (ticker-backed)
+                    // glow — an ordinary card in a list of a dozen doesn't
+                    // need its own AnimationController, and pulsing every
+                    // row would read as noise, not polish.
+                    child: hero
+                        ? _PulsingGlow(color: glowColor, radius: innerRadius)
+                        : _StaticGlow(color: glowColor, radius: innerRadius),
                   ),
                   Padding(padding: padding, child: child),
                 ],
@@ -70,6 +63,75 @@ class GlassCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _StaticGlow extends StatelessWidget {
+  const _StaticGlow({required this.color, required this.radius});
+
+  final Color color;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(radius),
+        gradient: RadialGradient(
+          colors: [color.withValues(alpha: 0.08), color.withValues(alpha: 0)],
+          center: Alignment.topLeft,
+          radius: 1.0,
+        ),
+      ),
+    );
+  }
+}
+
+class _PulsingGlow extends StatefulWidget {
+  const _PulsingGlow({required this.color, required this.radius});
+
+  final Color color;
+  final double radius;
+
+  @override
+  State<_PulsingGlow> createState() => _PulsingGlowState();
+}
+
+class _PulsingGlowState extends State<_PulsingGlow> with SingleTickerProviderStateMixin {
+  // Bounded rather than infinite: an ever-repeating controller never
+  // "settles", which would hang any widget test calling pumpAndSettle() on
+  // a screen with a hero card. A handful of breathing cycles on first view
+  // reads as alive without that cost — real usage doesn't need it to pulse
+  // forever to feel premium.
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 3),
+  )..repeat(reverse: true, count: 6);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final alpha = 0.16 * (0.75 + 0.25 * _controller.value);
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(widget.radius),
+            gradient: RadialGradient(
+              colors: [widget.color.withValues(alpha: alpha), widget.color.withValues(alpha: 0)],
+              center: Alignment.topLeft,
+              radius: 1.4,
+            ),
+          ),
+        );
+      },
     );
   }
 }

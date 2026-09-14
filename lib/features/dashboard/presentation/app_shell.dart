@@ -107,20 +107,34 @@ class _TabButton extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          if (selected)
-            Container(
-              width: 20,
-              height: 3,
-              margin: const EdgeInsets.only(bottom: 6),
-              decoration: BoxDecoration(
-                color: spec.color,
-                borderRadius: BorderRadius.circular(2),
-                boxShadow: [BoxShadow(color: spec.color.withValues(alpha: 0.7), blurRadius: 8)],
+          SizedBox(
+            height: 9,
+            child: Center(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOut,
+                width: selected ? 20 : 0,
+                height: 3,
+                decoration: BoxDecoration(
+                  color: spec.color,
+                  borderRadius: BorderRadius.circular(2),
+                  boxShadow: selected
+                      ? [BoxShadow(color: spec.color.withValues(alpha: 0.7), blurRadius: 8)]
+                      : null,
+                ),
               ),
-            )
-          else
-            const SizedBox(height: 9),
-          Icon(selected ? spec.activeIcon : spec.icon, color: color, size: 22),
+            ),
+          ),
+          TweenAnimationBuilder<Color?>(
+            tween: ColorTween(end: color),
+            duration: const Duration(milliseconds: 220),
+            builder: (context, animatedColor, _) => AnimatedScale(
+              scale: selected ? 1.12 : 1.0,
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOut,
+              child: Icon(selected ? spec.activeIcon : spec.icon, color: animatedColor, size: 22),
+            ),
+          ),
           const SizedBox(height: 4),
           Text(spec.label.toUpperCase(), style: AppTypography.mono(fontSize: 9, color: color, letterSpacing: 0.8)),
         ],
