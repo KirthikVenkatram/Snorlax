@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 
-/// A restrained, solid-color CTA button for everyday primary actions.
-///
-/// Unlike [GradientButton] (reserved for celebratory moments), this uses a
-/// two-stop [AppColors.accentBlue] gradient with a soft glow shadow rather
-/// than the full multi-color celebration gradient. Pass `null` for
-/// [onPressed] to render a disabled/dimmed state (e.g. while an async
-/// action is in flight).
+/// The primary CTA pill: [AppColors.accentGradient] fill, fully round
+/// (`999` per the glass-UI spec — every pill/chip/button in the app is a
+/// stadium shape, not a rounded rectangle), with a soft accent-coloured
+/// glow shadow. Pass `null` for [onPressed] to render a disabled/dimmed
+/// state (e.g. while an async action is in flight).
 class PrimaryButton extends StatelessWidget {
   const PrimaryButton({super.key, required this.label, required this.onPressed});
 
@@ -21,18 +19,15 @@ class PrimaryButton extends StatelessWidget {
       opacity: enabled ? 1.0 : 0.5,
       child: Material(
         color: Colors.transparent,
+        shape: const StadiumBorder(),
         child: InkWell(
           onTap: onPressed,
-          borderRadius: BorderRadius.circular(16),
+          customBorder: const StadiumBorder(),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              gradient: const LinearGradient(
-                colors: [Color(0xFF5B76FF), AppColors.accentBlue],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              borderRadius: BorderRadius.circular(999),
+              gradient: AppColors.accentGradient,
               boxShadow: enabled
                   ? [
                       BoxShadow(

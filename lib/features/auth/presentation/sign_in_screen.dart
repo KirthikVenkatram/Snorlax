@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/ambient_background.dart';
 import 'auth_providers.dart';
 
 class SignInScreen extends ConsumerStatefulWidget {
@@ -37,39 +38,61 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     final authRepository = ref.read(authRepositoryProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
-      body: Stack(
-        children: [
-          const _AmbientGlow(),
-          SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-                child: Column(
+      backgroundColor: Colors.transparent,
+      body: AmbientBackground(
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Column(
+              children: [
+                // Mark + title sit vertically centred in the top two-thirds;
+                // the sign-in pills are bottom-anchored below.
+                Expanded(
+                  flex: 2,
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 88,
+                          height: 88,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(26),
+                            gradient: const LinearGradient(
+                              colors: [AppColors.accentGreen, AppColors.accentViolet],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            'S',
+                            style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                                  fontSize: 44,
+                                  color: Colors.white,
+                                ),
+                          ),
+                        ),
+                        const SizedBox(height: 28),
+                        Text(
+                          'Snorlax',
+                          style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 44),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Training, food and sleep in one place.\nConsistency beats intensity.',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                color: AppColors.textSecondary,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(28),
-                      child: Image.asset(
-                        'assets/icon/icon.png',
-                        width: 88,
-                        height: 88,
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-                    Text(
-                      'Snorlax',
-                      style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 40),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Your personal fitness operating system.',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                    ),
-                    const SizedBox(height: 56),
                     _GoogleSignInButton(
                       enabled: !_signingIn,
                       onPressed: () => _signIn(authRepository.signInWithGoogle),
@@ -78,26 +101,36 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                     SignInWithAppleButton(
                       height: 52,
                       style: SignInWithAppleButtonStyle.white,
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(999),
                       onPressed: _signingIn ? () {} : () => _signIn(authRepository.signInWithApple),
                     ),
-                    if (_signingIn) ...[
-                      const SizedBox(height: 28),
-                      const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                          valueColor: AlwaysStoppedAnimation<Color>(AppColors.accentBlue),
-                        ),
-                      ),
-                    ],
+                    const SizedBox(height: 16),
+                    Text(
+                      'Google and Apple only. No passwords to forget.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 12),
+                    ),
+                    SizedBox(
+                      height: 40,
+                      child: _signingIn
+                          ? const Center(
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.accentBlue),
+                                ),
+                              ),
+                            )
+                          : null,
+                    ),
                   ],
                 ),
-              ),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -116,9 +149,9 @@ class _GoogleSignInButton extends StatelessWidget {
       height: 52,
       child: Material(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        shape: const StadiumBorder(),
         child: InkWell(
-          borderRadius: BorderRadius.circular(14),
+          customBorder: const StadiumBorder(),
           onTap: enabled ? onPressed : null,
           child: Opacity(
             opacity: enabled ? 1.0 : 0.5,
@@ -190,43 +223,4 @@ class _GoogleMarkPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _AmbientGlow extends StatelessWidget {
-  const _AmbientGlow();
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned.fill(
-      child: IgnorePointer(
-        child: Stack(
-          children: [
-            Positioned(
-              top: -120,
-              left: -80,
-              child: _glowBlob(AppColors.accentViolet),
-            ),
-            Positioned(
-              bottom: -140,
-              right: -100,
-              child: _glowBlob(AppColors.accentGreen),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _glowBlob(Color color) {
-    return Container(
-      width: 320,
-      height: 320,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: RadialGradient(
-          colors: [color.withValues(alpha: 0.28), color.withValues(alpha: 0.0)],
-        ),
-      ),
-    );
-  }
 }

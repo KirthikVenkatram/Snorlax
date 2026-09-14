@@ -2,19 +2,20 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 
-/// A layered glass card: gradient surface + a soft top-left glow tinted by
-/// [glowColor] + a lit hairline edge, on top of a real backdrop blur. Used
-/// across everyday (non-celebratory) screens.
+/// Real "liquid glass": a translucent white fill + hairline border + a 1px
+/// inner top highlight, over a `BackdropFilter` blur — so whatever colour
+/// bloom sits behind the card (see [AmbientBackground]) shows through
+/// tinted, not an opaque painted box. A [glowColor]-tinted radial glow sits
+/// under the glass fill for card-specific emphasis on top of that.
 ///
-/// [hero] makes the glow brighter and larger, and gives it a slow "breathing"
-/// pulse — reserved for the one card at the top of a screen that should read
-/// as the page's headline surface (e.g. a dashboard's stat row).
+/// [hero] uses the stronger fill/stroke reserved for the one headline card
+/// per screen, and gives its glow a slow "breathing" pulse.
 class GlassCard extends StatelessWidget {
   const GlassCard({
     super.key,
     required this.child,
-    this.padding = const EdgeInsets.all(16),
-    this.glowColor = AppColors.accentBlue,
+    this.padding = const EdgeInsets.all(18),
+    this.glowColor = AppColors.accentGreen,
     this.hero = false,
   });
 
@@ -23,43 +24,46 @@ class GlassCard extends StatelessWidget {
   final Color glowColor;
   final bool hero;
 
+  static const _radius = 26.0;
+
   @override
   Widget build(BuildContext context) {
-    const outerRadius = 20.0;
-    const innerRadius = 19.0;
     return ClipRRect(
-      borderRadius: BorderRadius.circular(outerRadius),
+      borderRadius: BorderRadius.circular(_radius),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        // The outer gradient shows only as a 1px ring: the inset opaque
-        // surface below covers everything except that hairline margin.
+        filter: ImageFilter.blur(sigmaX: 13, sigmaY: 13),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            gradient: AppColors.cardStroke,
-            borderRadius: BorderRadius.circular(outerRadius),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(1),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: AppColors.surfaceGradient,
-                borderRadius: BorderRadius.circular(innerRadius),
-              ),
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    // Only hero cards get the animated (ticker-backed)
-                    // glow — an ordinary card in a list of a dozen doesn't
-                    // need its own AnimationController, and pulsing every
-                    // row would read as noise, not polish.
-                    child: hero
-                        ? _PulsingGlow(color: glowColor, radius: innerRadius)
-                        : _StaticGlow(color: glowColor, radius: innerRadius),
-                  ),
-                  Padding(padding: padding, child: child),
-                ],
-              ),
+            color: hero ? AppColors.glassFillStrong : AppColors.glassFill,
+            borderRadius: BorderRadius.circular(_radius),
+            border: Border.all(
+              color: hero ? AppColors.glassStrokeStrong : AppColors.glassStroke,
             ),
+          ),
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: hero
+                    ? _PulsingGlow(color: glowColor, radius: _radius)
+                    : _StaticGlow(color: glowColor, radius: _radius),
+              ),
+              // The inner top highlight the CSS box-shadow `inset` can't be
+              // expressed as in Flutter: a 1px line fading left-to-right.
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: Container(
+                  height: 1,
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [AppColors.glassHighlight, Colors.transparent],
+                    ),
+                  ),
+                ),
+              ),
+              Padding(padding: padding, child: child),
+            ],
           ),
         ),
       ),
@@ -79,7 +83,7 @@ class _StaticGlow extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(radius),
         gradient: RadialGradient(
-          colors: [color.withValues(alpha: 0.08), color.withValues(alpha: 0)],
+          colors: [color.withValues(alpha: 0.10), color.withValues(alpha: 0)],
           center: Alignment.topLeft,
           radius: 1.0,
         ),
@@ -120,7 +124,7 @@ class _PulsingGlowState extends State<_PulsingGlow> with SingleTickerProviderSta
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, _) {
-        final alpha = 0.16 * (0.75 + 0.25 * _controller.value);
+        final alpha = 0.18 * (0.75 + 0.25 * _controller.value);
         return DecoratedBox(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(widget.radius),
