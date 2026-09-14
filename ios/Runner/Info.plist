@@ -4,6 +4,10 @@
 	<dict>
 		<key>CADisableMinimumFrameDurationOnPhone</key>
 		<true/>
+		<key>NSCameraUsageDescription</key>
+		<string>Take a photo of your food to log its calories and macros.</string>
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>Pick a photo of your food to log its calories and macros.</string>
 		<key>GIDClientID</key>
 		<string>726263813003-rbclnknf08qc7j9er7i00ev2sgq8f3dv.apps.googleusercontent.com</string>
 		<key>CFBundleURLTypes</key>

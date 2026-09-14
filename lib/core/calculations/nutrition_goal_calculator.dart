@@ -68,4 +68,8 @@ class NutritionGoalCalculator {
       fatGrams: fatGrams,
     );
   }
+
+  /// ~35ml per kg bodyweight — the midpoint of the common 0.5-1.0 oz/lb
+  /// water-intake heuristic.
+  static int waterTargetMl(double weightKg) => (weightKg * 35).round();
 }

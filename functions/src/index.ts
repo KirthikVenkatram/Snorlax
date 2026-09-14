@@ -8,6 +8,7 @@ export { exchangeStravaToken } from './exchangeStravaToken';
 export { stravaWebhook } from './stravaWebhook';
 export { searchFood } from './searchFood';
 export { parseFoodText } from './parseFoodText';
+export { parseFoodImage } from './parseFoodImage';
 export { estimateNutrition } from './estimateNutrition';
 export { generateRecommendation } from './coach/generateRecommendation';
 export { generateMealPlanRecommendation } from './coach/generateMealPlanRecommendation';

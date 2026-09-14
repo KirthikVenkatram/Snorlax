@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import '../../../core/calculations/nutrition_goal_calculator.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/glass_card.dart';
 import '../../../core/widgets/progress_ring.dart';
+import '../../../core/widgets/weekly_bar_chart.dart';
 import '../../auth/data/user_profile_repository.dart';
 import '../data/food_search_service.dart';
 import '../data/nutrition_repository.dart';
@@ -35,6 +37,8 @@ class _NutritionHomeScreenState extends State<NutritionHomeScreen> {
   DateTime _selectedDate = DateTime.now();
   late Future<List<FoodEntry>> _entriesFuture;
   late Future<NutritionGoals?> _goalsFuture;
+  late Future<int> _waterFuture;
+  late Future<UserProfile?> _profileFuture;
 
   @override
   void initState() {
@@ -46,21 +50,16 @@ class _NutritionHomeScreenState extends State<NutritionHomeScreen> {
     setState(() {
       _entriesFuture = widget.nutritionRepository.listFoodLog(widget.uid);
       _goalsFuture = widget.nutritionRepository.getGoals(widget.uid);
+      _waterFuture = widget.nutritionRepository.getWaterMl(widget.uid, _selectedDate);
+      _profileFuture = widget.userProfileRepository.getProfile(widget.uid);
     });
   }
 
-  /// One line of the macro summary, e.g. `Protein: 45 / 150 g`.
-  Widget _macroRow(BuildContext context, String label, double total, double goal) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 2),
-      child: Text(
-        '$label: ${total.toStringAsFixed(0)} / ${goal.toStringAsFixed(0)} g',
-        style: Theme.of(context)
-            .textTheme
-            .bodyMedium
-            ?.copyWith(color: AppColors.textSecondary),
-      ),
-    );
+  Future<void> _addWater(int deltaMl) async {
+    await widget.nutritionRepository.addWater(widget.uid, _selectedDate, deltaMl);
+    setState(() {
+      _waterFuture = widget.nutritionRepository.getWaterMl(widget.uid, _selectedDate);
+    });
   }
 
   bool _isSameDay(DateTime a, DateTime b) =>
@@ -113,13 +112,17 @@ class _NutritionHomeScreenState extends State<NutritionHomeScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.chevron_left),
-            onPressed: () => setState(() =>
-                _selectedDate = _selectedDate.subtract(const Duration(days: 1))),
+            onPressed: () {
+              _selectedDate = _selectedDate.subtract(const Duration(days: 1));
+              _refresh();
+            },
           ),
           IconButton(
             icon: const Icon(Icons.chevron_right),
-            onPressed: () => setState(() =>
-                _selectedDate = _selectedDate.add(const Duration(days: 1))),
+            onPressed: () {
+              _selectedDate = _selectedDate.add(const Duration(days: 1));
+              _refresh();
+            },
           ),
         ],
       ),
@@ -184,10 +187,6 @@ class _NutritionHomeScreenState extends State<NutritionHomeScreen> {
                                 'Goal: ${goals.dailyCalories.toStringAsFixed(0)} kcal',
                                 style: textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
                               ),
-                              const SizedBox(height: 8),
-                              _macroRow(context, 'Protein', totalProtein, goals.proteinG),
-                              _macroRow(context, 'Carbs', totalCarbs, goals.carbsG),
-                              _macroRow(context, 'Fat', totalFat, goals.fatG),
                             ],
                           ],
                         ),
@@ -195,6 +194,113 @@ class _NutritionHomeScreenState extends State<NutritionHomeScreen> {
                     },
                   ),
                   const SizedBox(height: 16),
+                  FutureBuilder<NutritionGoals?>(
+                    future: _goalsFuture,
+                    builder: (context, goalsSnapshot) {
+                      final goals = goalsSnapshot.data;
+                      if (goals == null) return const SizedBox.shrink();
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: GlassCard(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              _MacroRing(
+                                label: 'Protein',
+                                total: totalProtein,
+                                goal: goals.proteinG,
+                                color: AppColors.accentBlue,
+                              ),
+                              _MacroRing(
+                                label: 'Carbs',
+                                total: totalCarbs,
+                                goal: goals.carbsG,
+                                color: AppColors.accentAmber,
+                              ),
+                              _MacroRing(
+                                label: 'Fat',
+                                total: totalFat,
+                                goal: goals.fatG,
+                                color: AppColors.accentViolet,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: FutureBuilder<UserProfile?>(
+                      future: _profileFuture,
+                      builder: (context, profileSnapshot) {
+                        final waterTarget = profileSnapshot.data == null
+                            ? 2000
+                            : NutritionGoalCalculator.waterTargetMl(profileSnapshot.data!.weightKg);
+                        return FutureBuilder<int>(
+                          future: _waterFuture,
+                          builder: (context, waterSnapshot) {
+                            final waterMl = waterSnapshot.data ?? 0;
+                            return GlassCard(
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.water_drop_outlined, color: AppColors.accentBlue),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text('Water', style: textTheme.bodyMedium),
+                                        Text(
+                                          '$waterMl / $waterTarget ml',
+                                          style: textTheme.bodyMedium
+                                              ?.copyWith(color: AppColors.textSecondary),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.remove_circle_outline),
+                                    tooltip: 'Remove a glass of water',
+                                    onPressed: waterMl <= 0 ? null : () => _addWater(-250),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.add_circle_outline),
+                                    tooltip: 'Add a glass of water',
+                                    onPressed: () => _addWater(250),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: FutureBuilder<NutritionGoals?>(
+                      future: _goalsFuture,
+                      builder: (context, goalsSnapshot) {
+                        return GlassCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Last 7 days', style: textTheme.bodyMedium),
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                height: 140,
+                                child: WeeklyBarChart(
+                                  days: _lastSevenDays(snapshot.data!, _selectedDate),
+                                  goal: goalsSnapshot.data?.dailyCalories,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
                   if (entries.isEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 24),
@@ -263,6 +369,56 @@ class _NutritionHomeScreenState extends State<NutritionHomeScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  /// Total calories per day for the 7 days ending on [anchor], oldest first
+  /// — the shape [WeeklyBarChart] expects.
+  List<DayValue> _lastSevenDays(List<FoodEntry> allEntries, DateTime anchor) {
+    return [
+      for (var i = 6; i >= 0; i--)
+        () {
+          final day = anchor.subtract(Duration(days: i));
+          final total = allEntries
+              .where((e) => _isSameDay(e.date, day))
+              .fold<double>(0, (sum, e) => sum + e.calories);
+          return DayValue(date: day, value: total);
+        }(),
+    ];
+  }
+}
+
+class _MacroRing extends StatelessWidget {
+  const _MacroRing({
+    required this.label,
+    required this.total,
+    required this.goal,
+    required this.color,
+  });
+
+  final String label;
+  final double total;
+  final double goal;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = goal == 0 ? 0.0 : (total / goal).clamp(0.0, 1.0);
+    return Column(
+      children: [
+        ProgressRing(
+          progress: progress,
+          color: color,
+          size: 64,
+          strokeWidth: 6,
+          center: Text(
+            total.toStringAsFixed(0),
+            style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(label, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+      ],
     );
   }
 }

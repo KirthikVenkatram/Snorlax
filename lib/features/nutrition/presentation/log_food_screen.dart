@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/glass_card.dart';
 import '../../../core/widgets/primary_button.dart';
@@ -32,14 +34,16 @@ class LogFoodScreen extends StatefulWidget {
 }
 
 class _LogFoodScreenState extends State<LogFoodScreen> with SingleTickerProviderStateMixin {
-  late final TabController _tabController = TabController(length: 2, vsync: this);
+  late final TabController _tabController = TabController(length: 3, vsync: this);
   final _quantityController = TextEditingController(text: '100');
   final _naturalLanguageController = TextEditingController();
 
   MealType _mealType = MealType.breakfast;
   FoodSearchResult? _selectedFood;
   List<ParsedFoodItem> _parsedItems = [];
+  File? _pickedImage;
   bool _saving = false;
+  bool _analyzingImage = false;
   String? _error;
 
   @override
@@ -64,6 +68,29 @@ class _LogFoodScreenState extends State<LogFoodScreen> with SingleTickerProvider
       setState(() => _error = 'Could not parse that. Try again or use search instead.');
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _pickAndAnalyzeImage(ImageSource source) async {
+    final picked = await ImagePicker().pickImage(source: source, imageQuality: 85);
+    if (picked == null) return;
+
+    setState(() {
+      _pickedImage = File(picked.path);
+      _analyzingImage = true;
+      _error = null;
+    });
+    try {
+      final bytes = await picked.readAsBytes();
+      final mimeType = picked.mimeType ?? 'image/jpeg';
+      final items = await widget.searchService.parseImage(bytes, mimeType);
+      if (!mounted) return;
+      setState(() => _parsedItems = items);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = "Could not analyze that photo. Try again or describe it instead.");
+    } finally {
+      if (mounted) setState(() => _analyzingImage = false);
     }
   }
 
@@ -202,7 +229,7 @@ class _LogFoodScreenState extends State<LogFoodScreen> with SingleTickerProvider
         title: const Text('Log food'),
         bottom: TabBar(
           controller: _tabController,
-          tabs: const [Tab(text: 'Search'), Tab(text: 'Describe')],
+          tabs: const [Tab(text: 'Search'), Tab(text: 'Describe'), Tab(text: 'Photo')],
         ),
       ),
       body: SafeArea(
@@ -211,6 +238,7 @@ class _LogFoodScreenState extends State<LogFoodScreen> with SingleTickerProvider
           children: [
             _buildSearchTab(),
             _buildNaturalLanguageTab(),
+            _buildPhotoTab(),
           ],
         ),
       ),
@@ -280,6 +308,65 @@ class _LogFoodScreenState extends State<LogFoodScreen> with SingleTickerProvider
         ),
         const SizedBox(height: 16),
         OutlinedButton(onPressed: _parseNaturalLanguage, child: const Text('Parse')),
+        _buildParsedItemsReview(),
+      ],
+    );
+  }
+
+  Widget _buildPhotoTab() {
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: [
+        DropdownButton<MealType>(
+          value: _mealType,
+          items: MealType.values
+              .map((m) => DropdownMenuItem(value: m, child: Text(m.name)))
+              .toList(),
+          onChanged: (m) => setState(() => _mealType = m ?? _mealType),
+        ),
+        const SizedBox(height: 16),
+        if (_pickedImage != null) ...[
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Image.file(_pickedImage!, height: 180, fit: BoxFit.cover),
+          ),
+          const SizedBox(height: 16),
+        ],
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.camera_alt_outlined),
+                label: const Text('Camera'),
+                onPressed: _analyzingImage ? null : () => _pickAndAnalyzeImage(ImageSource.camera),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.photo_library_outlined),
+                label: const Text('Gallery'),
+                onPressed: _analyzingImage ? null : () => _pickAndAnalyzeImage(ImageSource.gallery),
+              ),
+            ),
+          ],
+        ),
+        if (_analyzingImage) ...[
+          const SizedBox(height: 16),
+          const Center(child: CircularProgressIndicator()),
+        ],
+        _buildParsedItemsReview(),
+      ],
+    );
+  }
+
+  /// Shared by the Describe and Photo tabs: the parsed-items list plus the
+  /// error message and "Save all" button, since both flows populate the
+  /// same [_parsedItems] state and save through [_saveParsedItems].
+  Widget _buildParsedItemsReview() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
         if (_error != null) ...[
           const SizedBox(height: 8),
           Text(

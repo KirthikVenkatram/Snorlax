@@ -104,5 +104,20 @@ void main() {
       expect(goals!.dailyCalories, 2000);
       expect(goals.proteinG, 150);
     });
+
+    test('addWater accumulates and clamps at zero', () async {
+      final firestore = FakeFirebaseFirestore();
+      final repository = NutritionRepository(firestore: firestore);
+      final date = DateTime(2026, 1, 1);
+
+      expect(await repository.getWaterMl('uid-1', date), 0);
+
+      await repository.addWater('uid-1', date, 250);
+      await repository.addWater('uid-1', date, 250);
+      expect(await repository.getWaterMl('uid-1', date), 500);
+
+      await repository.addWater('uid-1', date, -1000);
+      expect(await repository.getWaterMl('uid-1', date), 0);
+    });
   });
 }

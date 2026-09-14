@@ -18,6 +18,15 @@ class NutritionRepository {
   DocumentReference<Map<String, dynamic>> _goalsDoc(String uid) =>
       _firestore.collection('users').doc(uid).collection('nutritionGoals').doc('goals');
 
+  DocumentReference<Map<String, dynamic>> _waterDoc(String uid, DateTime date) => _firestore
+      .collection('users')
+      .doc(uid)
+      .collection('waterLog')
+      .doc(_dateKey(date));
+
+  String _dateKey(DateTime date) =>
+      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
   Future<String> logFood({
     required String uid,
     required DateTime date,
@@ -82,6 +91,21 @@ class NutritionRepository {
     final doc = await _goalsDoc(uid).get();
     if (!doc.exists) return null;
     return NutritionGoals.fromJson(doc.data()!);
+  }
+
+  /// Adds [deltaMl] to the day's logged water (can be negative to undo a
+  /// tap), clamped so the stored total never goes below zero.
+  Future<void> addWater(String uid, DateTime date, int deltaMl) async {
+    final doc = _waterDoc(uid, date);
+    final current = await getWaterMl(uid, date);
+    final next = (current + deltaMl).clamp(0, 1 << 30);
+    await doc.set({'ml': next});
+  }
+
+  Future<int> getWaterMl(String uid, DateTime date) async {
+    final doc = await _waterDoc(uid, date).get();
+    if (!doc.exists) return 0;
+    return (doc.data()!['ml'] as num).toInt();
   }
 
   FoodEntry _fromDoc(String id, Map<String, dynamic> json) {

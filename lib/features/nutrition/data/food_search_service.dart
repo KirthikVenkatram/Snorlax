@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:cloud_functions/cloud_functions.dart';
 import '../domain/food_entry.dart';
 import '../domain/food_search_result.dart';
@@ -46,6 +48,17 @@ class FoodSearchService {
   Future<List<ParsedFoodItem>> parseText(String text) async {
     final callable = _functions.httpsCallable('parseFoodText');
     final response = await callable.call<Map<String, dynamic>>({'text': text});
+    return (response.data['items'] as List)
+        .map((i) => ParsedFoodItem.fromJson(i as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<ParsedFoodItem>> parseImage(Uint8List imageBytes, String mimeType) async {
+    final callable = _functions.httpsCallable('parseFoodImage');
+    final response = await callable.call<Map<String, dynamic>>({
+      'imageBase64': base64Encode(imageBytes),
+      'mimeType': mimeType,
+    });
     return (response.data['items'] as List)
         .map((i) => ParsedFoodItem.fromJson(i as Map<String, dynamic>))
         .toList();

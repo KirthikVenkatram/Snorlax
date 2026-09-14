@@ -14,6 +14,10 @@ class MockFirebaseFunctions extends Mock implements FirebaseFunctions {}
 
 void main() {
   testWidgets('shows today\'s food log grouped by meal with a day total', (tester) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final firestore = FakeFirebaseFirestore();
     final nutritionRepository = NutritionRepository(firestore: firestore);
     final searchService = FoodSearchService(
@@ -44,6 +48,11 @@ void main() {
   });
 
   testWidgets('shows an empty state with no entries today', (tester) async {
+
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final firestore = FakeFirebaseFirestore();
     final nutritionRepository = NutritionRepository(firestore: firestore);
     final searchService = FoodSearchService(
@@ -67,6 +76,11 @@ void main() {
   });
 
   testWidgets('shows macro totals against macro goals', (tester) async {
+
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final firestore = FakeFirebaseFirestore();
     final nutritionRepository = NutritionRepository(firestore: firestore);
     final searchService = FoodSearchService(
@@ -96,14 +110,23 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Goal: 2000 kcal'), findsOneWidget);
-    expect(find.text('Protein: 45 / 150 g'), findsOneWidget);
-    expect(find.text('Carbs: 120 / 200 g'), findsOneWidget);
-    expect(find.text('Fat: 30 / 60 g'), findsOneWidget);
+    // Macro totals now render as labelled rings rather than text rows.
+    expect(find.text('Protein'), findsOneWidget);
+    expect(find.text('Carbs'), findsOneWidget);
+    expect(find.text('Fat'), findsOneWidget);
+    expect(find.text('45'), findsOneWidget);
+    expect(find.text('120'), findsOneWidget);
+    expect(find.text('30'), findsOneWidget);
     // Per-entry macros are shown too.
     expect(find.textContaining('P 45g · C 120g · F 30g'), findsOneWidget);
   });
 
   testWidgets('goal progress shows even with zero entries logged', (tester) async {
+
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final firestore = FakeFirebaseFirestore();
     final nutritionRepository = NutritionRepository(firestore: firestore);
     final searchService = FoodSearchService(
@@ -129,15 +152,22 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Goal: 2000 kcal'), findsOneWidget);
-    expect(find.text('Protein: 0 / 150 g'), findsOneWidget);
-    expect(find.text('Carbs: 0 / 200 g'), findsOneWidget);
-    expect(find.text('Fat: 0 / 60 g'), findsOneWidget);
+    expect(find.text('Protein'), findsOneWidget);
+    expect(find.text('Carbs'), findsOneWidget);
+    expect(find.text('Fat'), findsOneWidget);
+    // All three macro rings show 0 (water renders as a combined "0 / X ml" string, not a bare "0").
+    expect(find.text('0'), findsNWidgets(3));
     expect(find.text('0 kcal'), findsOneWidget);
     // ...and the empty-state message sits below the card, not instead of it.
     expect(find.text('No food logged yet today.'), findsOneWidget);
   });
 
   testWidgets('empty-state copy drops "today" when viewing another day', (tester) async {
+
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final firestore = FakeFirebaseFirestore();
     final nutritionRepository = NutritionRepository(firestore: firestore);
     final searchService = FoodSearchService(

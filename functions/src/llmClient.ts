@@ -66,3 +66,40 @@ export async function generateText(prompt: string): Promise<string> {
     return callNvidiaNim(prompt);
   }
 }
+
+/**
+ * Vision-capable estimation from an image. Groq's currently available
+ * models have no vision variant, so this goes straight to NVIDIA NIM's
+ * llama-3.2-11b-vision-instruct (no fallback provider for vision).
+ */
+export async function generateVisionText(
+  prompt: string,
+  imageBase64: string,
+  mimeType: string,
+): Promise<string> {
+  const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${nimApiKey()}`,
+    },
+    body: JSON.stringify({
+      model: 'meta/llama-3.2-11b-vision-instruct',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: prompt },
+            { type: 'image_url', image_url: { url: `data:${mimeType};base64,${imageBase64}` } },
+          ],
+        },
+      ],
+      temperature: 0,
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`NVIDIA NIM vision request failed: ${response.status}`);
+  }
+  const data = (await response.json()) as ChatCompletionResponse;
+  return data.choices[0].message.content;
+}
