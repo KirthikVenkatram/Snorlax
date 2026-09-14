@@ -58,6 +58,18 @@ class CoachService {
     return response.data['id'] as String;
   }
 
+  /// Calls the `summarizeProgress` callable, which builds a fresh
+  /// server-side context and asks the AI provider for a short
+  /// natural-language progress summary. Unlike [generateRecommendation]/
+  /// [generateMealPlanRecommendation], this is read-only and advisory — it
+  /// never writes to `coachRecommendations`, so there's nothing to list or
+  /// decide on; the summary text is just returned directly.
+  Future<String> summarizeProgress() async {
+    final callable = _functions.httpsCallable('summarizeProgress');
+    final response = await callable.call<Map<String, dynamic>>();
+    return response.data['summary'] as String;
+  }
+
   /// Calls the `handleCommand` callable with the user's decision. The
   /// server re-validates the proposed command from scratch before applying
   /// anything — this call never mutates protected data directly itself.

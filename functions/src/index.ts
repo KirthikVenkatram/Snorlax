@@ -12,3 +12,4 @@ export { estimateNutrition } from './estimateNutrition';
 export { generateRecommendation } from './coach/generateRecommendation';
 export { generateMealPlanRecommendation } from './coach/generateMealPlanRecommendation';
 export { handleCommand } from './coach/handleCommand';
+export { summarizeProgress } from './coach/summarizeProgress';

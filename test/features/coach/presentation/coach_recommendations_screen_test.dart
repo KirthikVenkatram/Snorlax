@@ -8,6 +8,10 @@ import 'package:fitness_tracker/features/coach/presentation/coach_recommendation
 
 class MockFirebaseFunctions extends Mock implements FirebaseFunctions {}
 
+class MockHttpsCallable extends Mock implements HttpsCallable {}
+
+class MockHttpsCallableResult<T> extends Mock implements HttpsCallableResult<T> {}
+
 void main() {
   testWidgets('lists a pending recommendation with accept/reject actions', (tester) async {
     final firestore = FakeFirebaseFirestore();
@@ -39,5 +43,27 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('No recommendations yet.'), findsOneWidget);
+  });
+
+  testWidgets('tapping "Summarize my progress" calls the service and shows the returned text',
+      (tester) async {
+    final firestore = FakeFirebaseFirestore();
+    final functions = MockFirebaseFunctions();
+    final callable = MockHttpsCallable();
+    final result = MockHttpsCallableResult<Map<String, dynamic>>();
+    when(() => functions.httpsCallable('summarizeProgress')).thenReturn(callable);
+    when(() => callable.call<Map<String, dynamic>>()).thenAnswer((_) async => result);
+    when(() => result.data).thenReturn({'summary': 'Nutrition adherence has been strong this week.'});
+    final service = CoachService(firestore: firestore, functions: functions);
+
+    await tester.pumpWidget(
+      MaterialApp(home: CoachRecommendationsScreen(uid: 'u1', service: service)),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Summarize my progress'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Nutrition adherence has been strong this week.'), findsOneWidget);
   });
 }

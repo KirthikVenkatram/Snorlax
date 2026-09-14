@@ -8,6 +8,40 @@ Each entry: phase, what's wrong/deferred, why, suggested fix.
 
 ---
 
+## Post-audit wiring
+
+1. **`AiProvider.summarizeProgress` (declared and unit-tested in Phase 7,
+   `functions/src/ai/aiProvider.ts`) was dead code — no Cloud Function
+   handler ever called it.** An over-engineering audit flagged this seam
+   as unreachable. Fixed by adding `functions/src/coach/summarizeProgress.ts`,
+   a new `summarizeProgress` callable exported from `functions/src/index.ts`,
+   plus `CoachService.summarizeProgress()` and a "Summarize my progress"
+   button on `CoachRecommendationsScreen` that shows the returned text in a
+   dialog.
+   Design call: unlike `generateRecommendation`/`generateMealPlanRecommendation`,
+   this handler builds the `CoachContext`, asks the AI provider for a short
+   natural-language progress summary, and returns `{ summary }` directly to
+   the caller — it does **not** write to `coachRecommendations` or go
+   through `validateCommand`/`handleCommand`. Reasoning: it's read-only and
+   advisory, never proposes a command, and never touches protected data, so
+   there is nothing to approve/reject and no audit-worthy mutation to
+   record; forcing it through the recommendation/approval machinery built
+   for command proposals would add a persistence layer, a status field, and
+   review-flow UI with no purpose behind them. Tests:
+   `functions/src/coach/summarizeProgress.test.ts` (handler unit tests
+   against the fake `CoachFirestore` and a mocked `AiProvider`),
+   `test/features/coach/data/coach_service_test.dart` ("summarizeProgress
+   calls the summarizeProgress callable..."), and
+   `test/features/coach/presentation/coach_recommendations_screen_test.dart`
+   ("tapping \"Summarize my progress\"...").
+   Deployment: like every other Phase 7/8 Cloud Function, this is not live
+   until the user runs `firebase deploy --only functions` (or the combined
+   `functions,firestore:rules` command already noted elsewhere in this
+   file) — no deploy was run as part of this fix, per this project's
+   established pattern for backend changes.
+
+---
+
 ## Consolidated review fix pass (before Phase 9)
 
 A code-review pass ran against the full `Phase 5-8` diff and found 6 real

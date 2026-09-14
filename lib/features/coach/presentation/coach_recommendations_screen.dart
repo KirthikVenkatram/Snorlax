@@ -27,6 +27,7 @@ class _CoachRecommendationsScreenState extends State<CoachRecommendationsScreen>
   bool _loading = true;
   bool _showAuditLog = false;
   bool _generating = false;
+  bool _summarizing = false;
   String? _error;
 
   @override
@@ -65,6 +66,32 @@ class _CoachRecommendationsScreenState extends State<CoachRecommendationsScreen>
       setState(() => _error = 'Could not generate a recommendation: $error');
     } finally {
       if (mounted) setState(() => _generating = false);
+    }
+  }
+
+  Future<void> _summarize() async {
+    setState(() => _summarizing = true);
+    try {
+      final summary = await widget.service.summarizeProgress();
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Your progress'),
+          content: Text(summary),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = 'Could not summarize progress: $error');
+    } finally {
+      if (mounted) setState(() => _summarizing = false);
     }
   }
 
@@ -107,6 +134,11 @@ class _CoachRecommendationsScreenState extends State<CoachRecommendationsScreen>
                       PrimaryButton(
                         label: _generating ? 'Generating...' : 'Get a new recommendation',
                         onPressed: _generating ? null : _generate,
+                      ),
+                      const SizedBox(height: 12),
+                      OutlinedButton(
+                        onPressed: _summarizing ? null : _summarize,
+                        child: Text(_summarizing ? 'Summarizing...' : 'Summarize my progress'),
                       ),
                       const SizedBox(height: 16),
                       if (_recommendations.isEmpty)

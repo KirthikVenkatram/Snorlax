@@ -82,6 +82,18 @@ void main() {
       expect(id, 'meal-plan-rec-id');
     });
 
+    test('summarizeProgress calls the summarizeProgress callable and returns the summary text', () async {
+      final callable = MockHttpsCallable();
+      final result = MockHttpsCallableResult<Map<String, dynamic>>();
+      when(() => functions.httpsCallable('summarizeProgress')).thenReturn(callable);
+      when(() => callable.call<Map<String, dynamic>>()).thenAnswer((_) async => result);
+      when(() => result.data).thenReturn({'summary': 'Great week, keep it up!'});
+
+      final summary = await service.summarizeProgress();
+
+      expect(summary, 'Great week, keep it up!');
+    });
+
     test('submitDecision calls handleCommand with the recommendation id and decision', () async {
       final callable = MockHttpsCallable();
       final result = MockHttpsCallableResult<Map<String, dynamic>>();
