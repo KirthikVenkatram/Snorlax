@@ -809,6 +809,7 @@ class _PlanBuilderDialogState extends State<_PlanBuilderDialog> {
                   Expanded(child: Text(template.name)),
                   IconButton(
                     icon: const Icon(Icons.remove),
+                    tooltip: 'Decrease servings of ${template.name}',
                     onPressed: () => setState(() {
                       final current = _servingsByTemplateId[template.id] ?? 0;
                       if (current > 0) _servingsByTemplateId[template.id] = current - 1;
@@ -817,6 +818,7 @@ class _PlanBuilderDialogState extends State<_PlanBuilderDialog> {
                   Text('${_servingsByTemplateId[template.id] ?? 0}'),
                   IconButton(
                     icon: const Icon(Icons.add),
+                    tooltip: 'Increase servings of ${template.name}',
                     onPressed: () => setState(() {
                       _servingsByTemplateId[template.id] = (_servingsByTemplateId[template.id] ?? 0) + 1;
                     }),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/glass_card.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../data/coach_service.dart';
@@ -127,7 +128,7 @@ class _CoachRecommendationsScreenState extends State<CoachRecommendationsScreen>
                   padding: const EdgeInsets.all(24),
                   children: [
                     if (_error != null) ...[
-                      Text(_error!, style: const TextStyle(color: Colors.redAccent)),
+                      Text(_error!, style: const TextStyle(color: AppColors.error)),
                       const SizedBox(height: 16),
                     ],
                     if (!_showAuditLog) ...[
