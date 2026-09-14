@@ -609,3 +609,38 @@ the UI (not deleting), since the underlying behavior is wanted.
   including a case that writes to the repository directly (simulating a
   write from elsewhere) and asserts the already-mounted screen picks it
   up via the stream without rebuilding.
+
+---
+
+## Glass handoff — new features
+
+### Slice C — Sleep
+
+- **Sleep/training-day insight line skipped.** The handoff's Sleep screen
+  (Screen 10) shows a canned line ("You sleep 48 minutes longer on nights
+  after a training day. Worth protecting.") — per the plan's reconciliation
+  decision #2, this requires correlating `SleepRepository` entries against
+  logged workout days, which is a real analysis worth doing properly (with
+  enough historical data to be meaningful) rather than fabricating now.
+  Not built. A future pass could add it once there's a natural place to
+  compute it (candidate: `Trends`, which already aggregates workouts +
+  another repository over a window).
+- **No HealthKit/Health Connect sync**, as scoped — `SleepEntry`/
+  `SleepRepository` (`lib/features/sleep/domain/sleep_entry.dart`,
+  `lib/features/sleep/data/sleep_repository.dart`) are manual-entry only,
+  writing to `users/{uid}/sleep/{date}`. The doc shape (bedtime, wakeTime,
+  awakeMinutes, score, optional restingHeartRate/hrv/stages) is written so
+  a future HealthKit/Health Connect sync could populate the same doc
+  without a schema change — that sync itself is out of scope.
+- **Stages card denominator.** `_StagesCard` in `sleep_screen.dart` scales
+  each stage's bar width against the *largest* single stage's minutes
+  (not the sum of all four), matching the handoff's visual weighting where
+  each lane reads as its own proportion of the night rather than a
+  stacked/cumulative bar. Documented here since it's a judgment call, not
+  specified exactly in the handoff text.
+- **Routing not wired.** Per the plan, `/sleep` and `/sleep/check-in`
+  routes, the `MoreTab` entry, and `HomeTab`'s "Last night" tile deep-link
+  are all left for the final integration step — not part of this slice.
+  `SleepScreen` navigates to `SleepCheckInScreen` internally via
+  `Navigator.push` (not a named route) so the check-in flow is reachable
+  today without touching `app_router.dart`.
