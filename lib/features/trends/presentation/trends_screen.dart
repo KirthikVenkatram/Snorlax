@@ -3,6 +3,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/ambient_background.dart';
 import '../../../core/widgets/glass_card.dart';
 import '../../../core/widgets/progress_chart.dart';
+import '../../../core/widgets/section_label.dart';
 import '../../../core/widgets/weekly_bar_chart.dart';
 import '../../adherence/data/adherence_repository.dart';
 import '../../body_composition/data/body_composition_repository.dart';
@@ -161,28 +162,43 @@ class _TrendsScreenState extends State<TrendsScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Trends', style: textTheme.headlineMedium),
+                        Text(
+                          'Trends',
+                          style: textTheme.headlineMedium?.copyWith(fontSize: 28, letterSpacing: -0.8),
+                        ),
                         _ClosePill(onTap: () => Navigator.of(context).maybePop()),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 20),
                     GlassCard(
+                      hero: true,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('WEIGHT', style: textTheme.bodySmall),
-                          const SizedBox(height: 6),
-                          Text(
-                            _weightDeltaKg == null
-                                ? 'Not enough data yet'
-                                : '${_weightDeltaKg! > 0 ? '+' : ''}${_weightDeltaKg!.toStringAsFixed(1)} $_weightUnit',
-                            key: const Key('weightDelta'),
-                            style: textTheme.headlineMedium?.copyWith(
-                              fontSize: 24,
-                              color: _weightDeltaColor(_weightDeltaKg),
+                          SectionLabel(
+                            'Weight · 8 weeks',
+                            color: AppColors.accentGreen,
+                            accessory: Text(
+                              _weightDeltaKg == null
+                                  ? 'Not enough data yet'
+                                  : '${_weightDeltaKg! > 0 ? '+' : ''}${_weightDeltaKg!.toStringAsFixed(1)} $_weightUnit',
+                              key: const Key('weightDelta'),
+                              style: textTheme.headlineMedium?.copyWith(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                                color: _weightDeltaColor(_weightDeltaKg),
+                                shadows: _weightDeltaKg == null
+                                    ? null
+                                    : [
+                                        Shadow(
+                                          color: _weightDeltaColor(_weightDeltaKg).withValues(alpha: 0.6),
+                                          blurRadius: 16,
+                                        ),
+                                      ],
+                              ),
                             ),
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 16),
                           SizedBox(height: 160, child: ProgressChart(points: _weightPoints)),
                         ],
                       ),
@@ -193,9 +209,9 @@ class _TrendsScreenState extends State<TrendsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('DISCIPLINE', style: textTheme.bodySmall),
-                          const SizedBox(height: 12),
-                          SizedBox(height: 140, child: WeeklyBarChart(days: _disciplineBars)),
+                          const SectionLabel('Discipline', color: AppColors.accentViolet),
+                          const SizedBox(height: 16),
+                          SizedBox(height: 120, child: _DisciplineBars(weeks: _disciplineBars)),
                         ],
                       ),
                     ),
@@ -204,7 +220,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('STATS', style: textTheme.bodySmall),
+                          const SectionLabel('Stats'),
                           const SizedBox(height: 4),
                           _StatRow(
                             label: 'Calories / day',
@@ -224,10 +240,14 @@ class _TrendsScreenState extends State<TrendsScreen> {
                             format: (v) => v.toStringAsFixed(1),
                             deltaFormat: (d) => '${d > 0 ? '+' : ''}${d.toStringAsFixed(1)}',
                           ),
-                          // Sleep has no data source in this pass — Slice C
-                          // (`lib/features/sleep/`) may land the repository
-                          // this row needs after this slice ships. Stub
-                          // rather than fabricate; see ISSUES.md.
+                          // Sleep has no data source wired into this screen
+                          // yet — `SleepRepository.listRecent` only returns
+                          // the N most-recent check-ins, not a date-ranged
+                          // query, and wiring a new repository param here
+                          // would mean touching app_router.dart (out of
+                          // scope for this pass, may collide with a parallel
+                          // agent). Stub rather than fabricate; see
+                          // ISSUES.md, Group H.
                           const _StatRow(label: 'Sleep / night', stat: null, format: null, deltaFormat: null),
                         ],
                       ),
@@ -281,10 +301,16 @@ class _StatRow extends StatelessWidget {
           Text(value, style: textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w700)),
           if (deltaText != null) ...[
             const SizedBox(width: 8),
+            // Per the handoff: stat deltas render in neon regardless of
+            // sign (unlike the weight card, where a bulk wants +ve and a
+            // cut wants -ve — these rows have no such universal "good"
+            // direction either, but the spec calls for one consistent
+            // neon treatment here rather than the weight card's
+            // sign-dependent color).
             Text(
               deltaText,
               style: textTheme.bodyMedium?.copyWith(
-                color: delta! >= 0 ? AppColors.accentGreen : AppColors.accentBlue,
+                color: AppColors.accentGreen,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -292,6 +318,56 @@ class _StatRow extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// The discipline card's weekly bars — per the handoff: older weeks
+/// `white@14%`, recent weeks violet, this (most recent) week neon. Built as
+/// a small local row rather than reusing [WeeklyBarChart] (used for the
+/// weight/nutrition charts elsewhere), since that widget renders every bar
+/// in a single fixed color and has no per-bar color hook — real data still
+/// comes from [DayValue]s the screen already computed from
+/// `AdherenceRepository`.
+class _DisciplineBars extends StatelessWidget {
+  const _DisciplineBars({required this.weeks});
+
+  final List<DayValue> weeks;
+
+  @override
+  Widget build(BuildContext context) {
+    if (weeks.isEmpty) {
+      return const Center(
+        child: Text('No data yet', style: TextStyle(color: AppColors.textSecondary)),
+      );
+    }
+    final maxValue = weeks.map((w) => w.value).reduce((a, b) => a > b ? a : b);
+    final chartMax = maxValue <= 0 ? 1.0 : maxValue;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        for (var i = 0; i < weeks.length; i++) ...[
+          if (i > 0) const SizedBox(width: 6),
+          Expanded(
+            child: FractionallySizedBox(
+              alignment: Alignment.bottomCenter,
+              heightFactor: (weeks[i].value / chartMax).clamp(0.04, 1.0),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(6),
+                  color: _colorFor(i, weeks.length),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Color _colorFor(int index, int total) {
+    if (index == total - 1) return AppColors.accentGreen; // this week
+    if (index >= total - 3) return AppColors.accentViolet; // recent
+    return Colors.white.withValues(alpha: 0.14); // older
   }
 }
 

@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/calculations/meal_plan_calculator.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/ambient_background.dart';
 import '../../../core/widgets/glass_card.dart';
 import '../../../core/widgets/primary_button.dart';
+import '../../../core/widgets/section_label.dart';
 import '../../coach/data/coach_service.dart';
 import '../data/budget_repository.dart';
 import '../data/meal_plan_repository.dart';
@@ -224,64 +226,110 @@ class _MealPlanningScreenState extends State<MealPlanningScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Meal planning')),
-      body: SafeArea(
-        child: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : RefreshIndicator(
-                onRefresh: _load,
-                child: ListView(
-                  padding: const EdgeInsets.all(24),
-                  children: [
-                    if (_error != null) ...[
-                      Text(_error!, style: const TextStyle(color: AppColors.error)),
+      backgroundColor: Colors.transparent,
+      appBar: AppBar(title: const Text('Meal planning'), backgroundColor: Colors.transparent),
+      body: AmbientBackground(
+        child: SafeArea(
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : RefreshIndicator(
+                  onRefresh: _load,
+                  child: ListView(
+                    padding: const EdgeInsets.all(24),
+                    children: [
+                      if (_error != null) ...[
+                        Text(_error!, style: const TextStyle(color: AppColors.error)),
+                        const SizedBox(height: 16),
+                      ],
+                      _BudgetCard(budget: _budget, onEdit: _editBudget),
                       const SizedBox(height: 16),
-                    ],
-                    _BudgetCard(budget: _budget, onEdit: _editBudget),
-                    const SizedBox(height: 16),
-                    _TemplatesCard(
-                      templates: _templates,
-                      onAdd: _addTemplate,
-                      onEdit: _editTemplate,
-                      onDelete: _deleteTemplate,
-                    ),
-                    const SizedBox(height: 16),
-                    _PricesCard(prices: _prices, onAdd: _recordPrice),
-                    const SizedBox(height: 16),
-                    GlassCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Meal plans', style: Theme.of(context).textTheme.titleMedium),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Build a plan from your templates, or review one the AI coach proposed '
-                            '(only saved here after you approve it in the coach screen).',
-                          ),
-                          const SizedBox(height: 12),
-                          PrimaryButton(label: 'Build a plan', onPressed: _buildPlan),
-                          const SizedBox(height: 8),
-                          PrimaryButton(
-                            label: 'Ask coach to propose a plan',
-                            onPressed: _askingCoach ? null : _askCoach,
-                          ),
-                        ],
+                      _TemplatesCard(
+                        templates: _templates,
+                        onAdd: _addTemplate,
+                        onEdit: _editTemplate,
+                        onDelete: _deleteTemplate,
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    if (_plans.isEmpty)
-                      const Text('No meal plans yet.')
-                    else
-                      ..._plans.map(
-                        (plan) => Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: _PlanCard(plan: plan, onDelete: () => _deletePlan(plan)),
+                      const SizedBox(height: 16),
+                      _PricesCard(prices: _prices, onAdd: _recordPrice),
+                      const SizedBox(height: 16),
+                      GlassCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SectionLabel('Build or ask'),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Build a plan from your templates, or review one the AI coach proposed '
+                              '(only saved here after you approve it in the coach screen).',
+                              style: textTheme.bodyMedium,
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Expanded(child: _GlassPillButton(label: 'Build a plan', onPressed: _buildPlan)),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: PrimaryButton(
+                                    label: 'Ask coach',
+                                    onPressed: _askingCoach ? null : _askCoach,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
-                  ],
+                      const SizedBox(height: 16),
+                      const SectionLabel('Saved plans'),
+                      const SizedBox(height: 12),
+                      if (_plans.isEmpty)
+                        Text('No meal plans yet.', style: textTheme.bodyMedium)
+                      else
+                        ..._plans.map(
+                          (plan) => Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: _PlanCard(plan: plan, onDelete: () => _deletePlan(plan)),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A dark/translucent stadium pill for the secondary "Build a plan" action —
+/// per the handoff's meal-planning screenshot, "Build a plan" is glass while
+/// "Ask coach" is the gradient [PrimaryButton], mirroring the
+/// glass-vs-gradient pairing `_BackPill`/primary CTA use elsewhere (e.g.
+/// `onboarding_screen.dart`).
+class _GlassPillButton extends StatelessWidget {
+  const _GlassPillButton({required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.glassFillStrong,
+      shape: const StadiumBorder(side: BorderSide(color: AppColors.glassStroke)),
+      child: InkWell(
+        customBorder: const StadiumBorder(),
+        onTap: onPressed,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          child: Center(
+            child: Text(
+              label,
+              style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 16),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -296,22 +344,28 @@ class _BudgetCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final budget = this.budget;
+    final textTheme = Theme.of(context).textTheme;
     return GlassCard(
+      hero: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Budget', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          if (budget == null)
-            const Text('No budget set yet — proposals will still show cost, just without a ceiling to check against.')
-          else ...[
-            Text('Currency: ${budget.currency}'),
-            Text('Daily limit: ${budget.dailyLimit?.toStringAsFixed(2) ?? 'not set'}'),
-            Text('Weekly limit: ${budget.weeklyLimit?.toStringAsFixed(2) ?? 'not set'}'),
-            Text('Monthly limit: ${budget.monthlyLimit?.toStringAsFixed(2) ?? 'not set'}'),
-          ],
+          const SectionLabel('Budget'),
           const SizedBox(height: 12),
-          PrimaryButton(label: budget == null ? 'Set a budget' : 'Edit budget', onPressed: onEdit),
+          if (budget == null)
+            Text(
+              'No budget set yet — proposals will still show cost, just without a ceiling to check against.',
+              style: textTheme.bodyMedium,
+            )
+          else
+            Text(
+              'Daily ${budget.dailyLimit?.toStringAsFixed(0) ?? '—'} · '
+              'Weekly ${budget.weeklyLimit?.toStringAsFixed(0) ?? '—'} '
+              '${budget.currency}',
+              style: textTheme.headlineMedium?.copyWith(fontSize: 22),
+            ),
+          const SizedBox(height: 14),
+          _GlassPillButton(label: budget == null ? 'Set a budget' : 'Edit budget', onPressed: onEdit),
         ],
       ),
     );
@@ -333,34 +387,44 @@ class _TemplatesCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
     return GlassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Meal templates', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
+          const SectionLabel('Meal templates'),
+          const SizedBox(height: 12),
           if (templates.isEmpty)
-            const Text('No templates yet.')
+            Text('No templates yet.', style: textTheme.bodyMedium)
           else
             ...templates.map(
               (template) => Padding(
-                padding: const EdgeInsets.only(top: 6),
+                padding: const EdgeInsets.only(bottom: 10),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Expanded(
-                      child: Text(
-                        '${template.name} — ${_costLabel(template.costPerServing, template.currency, template.costSource)}, '
-                        '${template.caloriesPerServing.toStringAsFixed(0)} kcal, '
-                        '${template.proteinGPerServing.toStringAsFixed(0)}g protein',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(template.name, style: textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w700)),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${template.caloriesPerServing.toStringAsFixed(0)} kcal · '
+                            '${template.proteinGPerServing.toStringAsFixed(0)}g · '
+                            '${_costLabel(template.costPerServing, template.currency, template.costSource)}',
+                            style: textTheme.bodyMedium,
+                          ),
+                        ],
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.edit, size: 20),
+                      icon: const Icon(Icons.edit, size: 20, color: AppColors.textSecondary),
                       tooltip: 'Edit ${template.name}',
                       onPressed: () => onEdit(template),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.delete, size: 20),
+                      icon: const Icon(Icons.delete, size: 20, color: AppColors.textSecondary),
                       tooltip: 'Delete ${template.name}',
                       onPressed: () => onDelete(template),
                     ),
@@ -368,8 +432,8 @@ class _TemplatesCard extends StatelessWidget {
                 ),
               ),
             ),
-          const SizedBox(height: 12),
-          PrimaryButton(label: 'Add a template', onPressed: onAdd),
+          const SizedBox(height: 10),
+          _GlassPillButton(label: 'Add a template', onPressed: onAdd),
         ],
       ),
     );
@@ -384,32 +448,47 @@ class _PricesCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
     return GlassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Prices', style: Theme.of(context).textTheme.titleMedium),
+          const SectionLabel('Prices'),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Track what things cost over time — a standalone record, separate from a '
             "template's per-serving cost.",
+            style: textTheme.bodyMedium,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           if (prices.isEmpty)
-            const Text('No prices recorded yet.')
+            Text('No prices recorded yet.', style: textTheme.bodyMedium)
           else
             ...prices.map(
               (snapshot) => Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Text(
-                  '${snapshot.itemName} — ${_priceLabel(snapshot)}, '
-                  '${snapshot.quantity.toStringAsFixed(snapshot.quantity.truncateToDouble() == snapshot.quantity ? 0 : 2)} '
-                  '${snapshot.unit}, ${_sourceLabel(snapshot.source)}, ${_dateLabel(snapshot.timestamp)}',
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        snapshot.itemName,
+                        style: textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    Text(
+                      '${_priceLabel(snapshot)} / '
+                      '${snapshot.quantity.toStringAsFixed(snapshot.quantity.truncateToDouble() == snapshot.quantity ? 0 : 2)} '
+                      '${snapshot.unit}',
+                      textAlign: TextAlign.right,
+                      style: textTheme.bodyMedium?.copyWith(color: AppColors.accentGreen),
+                    ),
+                  ],
                 ),
               ),
             ),
-          const SizedBox(height: 12),
-          PrimaryButton(label: 'Record a price', onPressed: onAdd),
+          const SizedBox(height: 10),
+          _GlassPillButton(label: 'Record a price', onPressed: onAdd),
         ],
       ),
     );
@@ -420,18 +499,6 @@ class _PricesCard extends StatelessWidget {
     return price != null ? '${price.toStringAsFixed(2)} ${snapshot.currency}' : 'price unavailable';
   }
 
-  String _sourceLabel(PriceSource source) {
-    return switch (source) {
-      PriceSource.manual => 'manual',
-      PriceSource.live => 'live',
-      PriceSource.estimated => 'estimated',
-      PriceSource.unavailable => 'unavailable',
-    };
-  }
-
-  String _dateLabel(DateTime timestamp) {
-    return '${timestamp.year}-${timestamp.month.toString().padLeft(2, '0')}-${timestamp.day.toString().padLeft(2, '0')}';
-  }
 }
 
 class _PlanCard extends StatelessWidget {
@@ -442,47 +509,65 @@ class _PlanCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
     return GlassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Expanded(child: Text(plan.name, style: Theme.of(context).textTheme.titleMedium)),
+              Expanded(
+                child: Text(plan.name, style: textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w800, fontSize: 17)),
+              ),
               if (plan.source == MealPlanSource.aiProposal)
                 const Padding(
                   padding: EdgeInsets.only(left: 8),
-                  child: Text('AI proposed', style: TextStyle(color: AppColors.accentViolet, fontSize: 12)),
+                  child: Text(
+                    'AI proposed',
+                    style: TextStyle(color: AppColors.accentViolet, fontSize: 12, fontWeight: FontWeight.w700),
+                  ),
                 ),
               IconButton(
-                icon: const Icon(Icons.delete, size: 20),
+                icon: const Icon(Icons.delete, size: 20, color: AppColors.textSecondary),
                 tooltip: 'Delete ${plan.name}',
                 onPressed: onDelete,
               ),
             ],
           ),
-          Text('${plan.periodType.name} plan'),
-          const SizedBox(height: 8),
+          Text('${plan.periodType.name} plan', style: textTheme.bodyMedium),
+          const SizedBox(height: 10),
           Text(
             plan.totalCost != null
                 ? 'Total cost: ${plan.totalCost!.toStringAsFixed(2)} ${plan.currency}'
                 : 'Total cost: unavailable (one or more items are unpriced)',
+            style: textTheme.bodyLarge?.copyWith(color: AppColors.accentGreen, fontWeight: FontWeight.w700),
           ),
+          const SizedBox(height: 4),
           Text(
             plan.periodType == MealPlanPeriodType.daily
                 ? 'Weekly projection: ${_projected(plan, MealPlanPeriodType.weekly)}'
                 : 'Daily equivalent: ${_projected(plan, MealPlanPeriodType.daily)}',
+            style: textTheme.bodyMedium,
           ),
-          Text('Monthly projection: ${_monthlyProjection(plan)}'),
-          if (plan.totalCalories != null) Text('Total calories: ${plan.totalCalories!.toStringAsFixed(0)} kcal'),
-          if (plan.totalProteinG != null) Text('Total protein: ${plan.totalProteinG!.toStringAsFixed(0)} g'),
+          Text('Monthly projection: ${_monthlyProjection(plan)}', style: textTheme.bodyMedium),
+          if (plan.totalCalories != null)
+            Text('Total calories: ${plan.totalCalories!.toStringAsFixed(0)} kcal', style: textTheme.bodyMedium),
+          if (plan.totalProteinG != null)
+            Text('Total protein: ${plan.totalProteinG!.toStringAsFixed(0)} g', style: textTheme.bodyMedium),
           if (plan.proteinPerCurrencyUnit != null)
-            Text('Protein per ${plan.currency}: ${plan.proteinPerCurrencyUnit!.toStringAsFixed(1)} g'),
-          const SizedBox(height: 8),
+            Text(
+              'Protein per ${plan.currency}: ${plan.proteinPerCurrencyUnit!.toStringAsFixed(1)} g',
+              style: textTheme.bodyMedium,
+            ),
+          const SizedBox(height: 10),
           ...plan.items.map(
-            (item) => Text(
-              '${item.templateName} x${item.servings.toStringAsFixed(item.servings.truncateToDouble() == item.servings ? 0 : 1)}'
-              ' — ${item.lineCost != null ? '${item.lineCost!.toStringAsFixed(2)} ${plan.currency}' : 'unpriced'}',
+            (item) => Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                '${item.templateName} x${item.servings.toStringAsFixed(item.servings.truncateToDouble() == item.servings ? 0 : 1)}'
+                ' — ${item.lineCost != null ? '${item.lineCost!.toStringAsFixed(2)} ${plan.currency}' : 'unpriced'}',
+                style: textTheme.bodyMedium,
+              ),
             ),
           ),
         ],

@@ -76,13 +76,13 @@ void main() {
 
     await pumpTallSurface(tester, MaterialApp.router(routerConfig: router));
 
-    expect(find.text('Ask coach to propose a plan'), findsOneWidget);
+    expect(find.text('Ask coach'), findsOneWidget);
 
     // The button may be below the fold in the test viewport's ListView.
-    await tester.ensureVisible(find.text('Ask coach to propose a plan'));
+    await tester.ensureVisible(find.text('Ask coach'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Ask coach to propose a plan'));
+    await tester.tap(find.text('Ask coach'));
     await tester.pumpAndSettle();
 
     verify(() => callable.call<Map<String, dynamic>>()).called(1);
