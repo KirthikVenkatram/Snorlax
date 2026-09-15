@@ -112,6 +112,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return AppShell(
             homeBuilder: (onNavigateToTab) => HomeTab(
               uid: uid,
+              displayName: ref.read(firebaseAuthProvider).currentUser?.displayName,
               nutritionRepository: ref.read(nutritionRepositoryProvider),
               adherenceRepository: ref.read(adherenceRepositoryProvider),
               workoutRepository: ref.read(workoutRepositoryProvider),

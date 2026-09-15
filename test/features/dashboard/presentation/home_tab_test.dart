@@ -10,7 +10,7 @@ import 'package:fitness_tracker/features/sleep/data/sleep_repository.dart';
 import 'package:fitness_tracker/features/workouts/data/workout_repository.dart';
 
 void main() {
-  Widget buildHome({required ValueChanged<int> onNavigateToTab}) {
+  Widget buildHome({required ValueChanged<int> onNavigateToTab, String? displayName}) {
     final firestore = FakeFirebaseFirestore();
     final nutritionRepository = NutritionRepository(firestore: firestore);
     final workoutRepository = WorkoutRepository(firestore: firestore);
@@ -26,6 +26,7 @@ void main() {
     return MaterialApp(
       home: HomeTab(
         uid: 'u1',
+        displayName: displayName,
         nutritionRepository: nutritionRepository,
         adherenceRepository: adherenceRepository,
         workoutRepository: workoutRepository,
@@ -40,26 +41,22 @@ void main() {
     await tester.pumpWidget(buildHome(onNavigateToTab: (_) {}));
     await tester.pumpAndSettle();
 
-    expect(find.text('Set a calorie goal'), findsOneWidget);
+    expect(find.text('—'), findsWidgets);
   });
 
-  testWidgets('tapping "Log food" switches to the Nutrition tab', (tester) async {
+  testWidgets('greets with the real display name, falling back to no name', (tester) async {
+    await tester.pumpWidget(buildHome(onNavigateToTab: (_) {}, displayName: 'Kirthik Venkatram'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Kirthik'), findsOneWidget);
+  });
+
+  testWidgets('tapping the hero card switches to the Nutrition tab', (tester) async {
     int? navigatedTo;
     await tester.pumpWidget(buildHome(onNavigateToTab: (i) => navigatedTo = i));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Log food'));
-    await tester.pumpAndSettle();
-
-    expect(navigatedTo, 1);
-  });
-
-  testWidgets('tapping the Today hero card switches to the Nutrition tab', (tester) async {
-    int? navigatedTo;
-    await tester.pumpWidget(buildHome(onNavigateToTab: (i) => navigatedTo = i));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Today'));
+    await tester.tap(find.byKey(const Key('todayHeroCard')));
     await tester.pumpAndSettle();
 
     expect(navigatedTo, 1);

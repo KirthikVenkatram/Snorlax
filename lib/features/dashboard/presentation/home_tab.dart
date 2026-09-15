@@ -6,7 +6,6 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/glass_card.dart';
 import '../../../core/widgets/pressable.dart';
 import '../../../core/widgets/progress_ring.dart';
-import '../../../core/widgets/section_label.dart';
 import '../../adherence/data/adherence_repository.dart';
 import '../../habits/data/habit_repository.dart';
 import '../../habits/domain/habit.dart';
@@ -21,12 +20,22 @@ class _DashboardStats {
   const _DashboardStats({
     required this.caloriesConsumed,
     required this.calorieGoal,
-    required this.weeklyAdherence,
+    required this.proteinConsumed,
+    required this.proteinGoal,
+    required this.carbsConsumed,
+    required this.carbsGoal,
+    required this.fatConsumed,
+    required this.fatGoal,
   });
 
   final double caloriesConsumed;
   final double? calorieGoal;
-  final double? weeklyAdherence;
+  final double proteinConsumed;
+  final double? proteinGoal;
+  final double carbsConsumed;
+  final double? carbsGoal;
+  final double fatConsumed;
+  final double? fatGoal;
 }
 
 class _HomeExtras {
@@ -53,6 +62,7 @@ class HomeTab extends StatefulWidget {
   const HomeTab({
     super.key,
     required this.uid,
+    required this.displayName,
     required this.nutritionRepository,
     required this.adherenceRepository,
     required this.workoutRepository,
@@ -62,6 +72,11 @@ class HomeTab extends StatefulWidget {
   });
 
   final String uid;
+
+  /// The signed-in user's Firebase Auth display name (from Google/Apple
+  /// sign-in), or null if none was provided — the greeting falls back to a
+  /// name-less "Morning." rather than a fake placeholder name.
+  final String? displayName;
   final NutritionRepository nutritionRepository;
   final AdherenceRepository adherenceRepository;
   final WorkoutRepository workoutRepository;
@@ -118,24 +133,39 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
     final now = DateTime.now();
     final entries = await widget.nutritionRepository.listFoodLog(widget.uid);
     final goals = await widget.nutritionRepository.getGoals(widget.uid);
-    final weekly = await widget.adherenceRepository.computeAndCacheWeekly(widget.uid, now);
 
-    final todayCalories = entries
+    final today = entries
         .where((e) => e.date.year == now.year && e.date.month == now.month && e.date.day == now.day)
-        .fold<double>(0, (sum, e) => sum + e.calories);
+        .toList();
 
     return _DashboardStats(
-      caloriesConsumed: todayCalories,
+      caloriesConsumed: today.fold<double>(0, (s, e) => s + e.calories),
       calorieGoal: goals?.dailyCalories,
-      weeklyAdherence: weekly.overallScore,
+      proteinConsumed: today.fold<double>(0, (s, e) => s + e.proteinG),
+      proteinGoal: goals?.proteinG,
+      carbsConsumed: today.fold<double>(0, (s, e) => s + e.carbsG),
+      carbsGoal: goals?.carbsG,
+      fatConsumed: today.fold<double>(0, (s, e) => s + e.fatG),
+      fatGoal: goals?.fatG,
     );
+  }
+
+  /// Per the handoff Screen 2: an uppercase weekday+date kicker.
+  String get _dateKicker {
+    const weekdays = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
+    const months = [
+      'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY',
+      'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER',
+    ];
+    final now = DateTime.now();
+    return '${weekdays[now.weekday - 1]} ${now.day} ${months[now.month - 1]}';
   }
 
   String get _greeting {
     final hour = DateTime.now().hour;
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
+    final period = hour < 12 ? 'Morning' : (hour < 17 ? 'Afternoon' : 'Evening');
+    final name = widget.displayName?.trim();
+    return (name == null || name.isEmpty) ? '$period.' : '$period, ${name.split(' ').first}.';
   }
 
   Future<_HomeExtras> _loadExtras() async {
@@ -183,9 +213,27 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
                 delegate: SliverChildListDelegate([
                   _stagger(
                     0,
-                    Text(
-                      _greeting,
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontSize: 22),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(_dateKicker, style: AppTypography.mono(fontSize: 10)),
+                              const SizedBox(height: 4),
+                              Text(
+                                _greeting,
+                                style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontSize: 28),
+                              ),
+                            ],
+                          ),
+                        ),
+                        _GlassPill(
+                          label: 'Trends',
+                          onTap: () => GoRouter.of(context).push('/trends'),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -193,52 +241,10 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
                     1,
                     FutureBuilder<_DashboardStats>(
                       future: _statsFuture,
-                      builder: (context, snapshot) => _HeroStatsRow(
+                      builder: (context, snapshot) => _TodayHeroCard(
                         stats: snapshot.data,
-                        onOpenNutrition: () => widget.onNavigateToTab(1),
-                        onOpenCoach: () => widget.onNavigateToTab(3),
+                        onTap: () => widget.onNavigateToTab(1),
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  _stagger(
-                    2,
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const SectionLabel('Quick actions'),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _QuickAction(
-                                icon: Icons.restaurant_outlined,
-                                label: 'Log food',
-                                color: AppColors.accentGreen,
-                                onTap: () => widget.onNavigateToTab(1),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _QuickAction(
-                                icon: Icons.fitness_center_outlined,
-                                label: 'Log workout',
-                                color: AppColors.accentViolet,
-                                onTap: () => widget.onNavigateToTab(2),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _QuickAction(
-                                icon: Icons.auto_awesome_outlined,
-                                label: 'Ask coach',
-                                color: AppColors.accentAmber,
-                                onTap: () => widget.onNavigateToTab(3),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -322,106 +328,83 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
 
 String _formatDuration(Duration d) => '${d.inHours}h ${d.inMinutes % 60}m';
 
-class _HeroStatsRow extends StatelessWidget {
-  const _HeroStatsRow({
-    required this.stats,
-    required this.onOpenNutrition,
-    required this.onOpenCoach,
-  });
+/// The handoff's Screen 2 hero: one glass card with the calorie ring on the
+/// left and macro bars on the right, rather than two separate stat cards.
+class _TodayHeroCard extends StatelessWidget {
+  const _TodayHeroCard({required this.stats, required this.onTap});
 
   final _DashboardStats? stats;
-  final VoidCallback onOpenNutrition;
-  final VoidCallback onOpenCoach;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final calorieGoal = stats?.calorieGoal;
     final consumed = stats?.caloriesConsumed ?? 0;
-    final calorieProgress = calorieGoal != null && calorieGoal > 0 ? consumed / calorieGoal : 0.0;
-    final adherence = stats?.weeklyAdherence;
+    final progress = calorieGoal != null && calorieGoal > 0 ? consumed / calorieGoal : 0.0;
+    final kcalLeft = calorieGoal == null ? null : (calorieGoal - consumed).round();
 
-    return Row(
-      children: [
-        Expanded(
-          child: _HeroStatCard(
-            label: 'Today',
-            ring: ProgressRing(
-              progress: calorieProgress,
-              color: AppColors.accentGreen,
-              size: 76,
-              strokeWidth: 8,
-              center: Text(
-                calorieGoal == null ? '—' : '${consumed.round()}',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontSize: 20),
-              ),
-            ),
-            caption: calorieGoal == null ? 'Set a calorie goal' : 'of ${calorieGoal.round()} kcal',
-            onTap: onOpenNutrition,
-            glowColor: AppColors.accentGreen,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _HeroStatCard(
-            label: 'This week',
-            ring: ProgressRing(
-              progress: adherence ?? 0,
-              color: AppColors.accentBlue,
-              size: 76,
-              strokeWidth: 8,
-              center: Text(
-                adherence == null ? '—' : '${(adherence * 100).round()}%',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontSize: 20),
-              ),
-            ),
-            caption: adherence == null ? 'No data yet' : 'adherence',
-            onTap: onOpenCoach,
-            glowColor: AppColors.accentBlue,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _HeroStatCard extends StatelessWidget {
-  const _HeroStatCard({
-    required this.label,
-    required this.ring,
-    required this.caption,
-    required this.onTap,
-    required this.glowColor,
-  });
-
-  final String label;
-  final Widget ring;
-  final String caption;
-  final VoidCallback onTap;
-  final Color glowColor;
-
-  @override
-  Widget build(BuildContext context) {
     return Pressable(
+      key: const Key('todayHeroCard'),
       onTap: onTap,
       child: InkWell(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(30),
         onTap: onTap,
         child: GlassCard(
           hero: true,
-          glowColor: glowColor,
-          child: Column(
+          glowColor: AppColors.accentGreen,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
+              ProgressRing(
+                progress: progress,
+                color: AppColors.accentGreen,
+                size: 140,
+                strokeWidth: 14,
+                center: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      kcalLeft == null ? '—' : '$kcalLeft',
+                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontSize: 33),
+                    ),
+                    Text('KCAL LEFT', style: AppTypography.mono(fontSize: 9)),
+                  ],
+                ),
               ),
-              const SizedBox(height: 12),
-              ring,
-              const SizedBox(height: 12),
-              Text(
-                caption,
-                style: Theme.of(context).textTheme.bodyMedium,
-                textAlign: TextAlign.center,
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('EATEN / TARGET', style: AppTypography.mono(fontSize: 9)),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${consumed.round()} / ${calorieGoal?.round() ?? '—'}',
+                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontSize: 20),
+                    ),
+                    const SizedBox(height: 14),
+                    _MacroBar(
+                      label: 'P',
+                      consumed: stats?.proteinConsumed ?? 0,
+                      goal: stats?.proteinGoal,
+                      color: AppColors.accentGreen,
+                    ),
+                    const SizedBox(height: 8),
+                    _MacroBar(
+                      label: 'C',
+                      consumed: stats?.carbsConsumed ?? 0,
+                      goal: stats?.carbsGoal,
+                      color: AppColors.accentViolet,
+                    ),
+                    const SizedBox(height: 8),
+                    _MacroBar(
+                      label: 'F',
+                      consumed: stats?.fatConsumed ?? 0,
+                      goal: stats?.fatGoal,
+                      color: AppColors.accentBlue,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -431,40 +414,61 @@ class _HeroStatCard extends StatelessWidget {
   }
 }
 
-class _QuickAction extends StatelessWidget {
-  const _QuickAction({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
+class _MacroBar extends StatelessWidget {
+  const _MacroBar({required this.label, required this.consumed, required this.goal, required this.color});
 
-  final IconData icon;
   final String label;
+  final double consumed;
+  final double? goal;
   final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = (goal != null && goal! > 0) ? (consumed / goal!).clamp(0.0, 1.0) : 0.0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: progress),
+            duration: const Duration(milliseconds: 900),
+            curve: Curves.easeOutCubic,
+            builder: (context, value, _) => LinearProgressIndicator(
+              value: value,
+              minHeight: 8,
+              backgroundColor: color.withValues(alpha: 0.15),
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+            ),
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          '$label ${consumed.round()}/${goal?.round() ?? '—'}g',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 10),
+        ),
+      ],
+    );
+  }
+}
+
+class _GlassPill extends StatelessWidget {
+  const _GlassPill({required this.label, required this.onTap});
+
+  final String label;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Pressable(
-      onTap: onTap,
+    return Material(
+      color: AppColors.glassFill,
+      shape: const StadiumBorder(side: BorderSide(color: AppColors.glassStroke)),
       child: InkWell(
-        borderRadius: BorderRadius.circular(20),
+        customBorder: const StadiumBorder(),
         onTap: onTap,
-        child: GlassCard(
-          glowColor: color,
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-          child: Column(
-            children: [
-              Icon(icon, color: color, size: 22),
-              const SizedBox(height: 8),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 12),
-              ),
-            ],
-          ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Text(label, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 13)),
         ),
       ),
     );
