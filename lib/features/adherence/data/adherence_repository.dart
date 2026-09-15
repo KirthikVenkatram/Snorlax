@@ -143,6 +143,24 @@ class AdherenceRepository {
     return WeeklyAdherenceSummary.fromJson(weekId, doc.data()!);
   }
 
+  /// Reads the cached weekly summaries for the [weeks] ISO weeks ending
+  /// with the week containing today, oldest first. Purely a read over
+  /// whatever `adherenceWeekly/{weekId}` docs already exist via
+  /// [getWeekly] — it does not compute or cache anything, so a week that
+  /// was never visited via [computeAndCacheWeekly] (e.g. the Adherence
+  /// screen) comes back as `null` in that slot rather than being
+  /// backfilled.
+  Future<List<WeeklyAdherenceSummary?>> listRecentWeekly(String uid, int weeks) async {
+    final now = DateTime.now();
+    final result = <WeeklyAdherenceSummary?>[];
+    for (var i = weeks - 1; i >= 0; i--) {
+      final weekDate = now.subtract(Duration(days: 7 * i));
+      final weekId = AdherenceCalculator.weekIdFor(weekDate);
+      result.add(await getWeekly(uid, weekId));
+    }
+    return result;
+  }
+
   Future<ComponentInput> _nutritionComponent(String uid, DateTime day) async {
     final goals = await _nutritionRepository.getGoals(uid);
     if (goals == null || goals.dailyCalories <= 0) return const ComponentInput.excluded();
