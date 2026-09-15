@@ -114,6 +114,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               uid: uid,
               nutritionRepository: ref.read(nutritionRepositoryProvider),
               searchService: ref.read(foodSearchServiceProvider),
+              recipeRepository: ref.read(recipeRepositoryProvider),
               userProfileRepository: ref.read(userProfileRepositoryProvider),
             ),
             train: WorkoutsHomeScreen(
@@ -174,6 +175,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             uid: uid,
             nutritionRepository: ref.read(nutritionRepositoryProvider),
             searchService: ref.read(foodSearchServiceProvider),
+            recipeRepository: ref.read(recipeRepositoryProvider),
             userProfileRepository: ref.read(userProfileRepositoryProvider),
           );
         },

@@ -4,6 +4,7 @@ import '../../auth/presentation/auth_providers.dart';
 import '../data/custom_food_repository.dart';
 import '../data/food_search_service.dart';
 import '../data/nutrition_repository.dart';
+import '../data/recipe_repository.dart';
 
 final nutritionRepositoryProvider = Provider<NutritionRepository>((ref) {
   return NutritionRepository(firestore: ref.watch(firestoreProvider));
@@ -11,6 +12,10 @@ final nutritionRepositoryProvider = Provider<NutritionRepository>((ref) {
 
 final customFoodRepositoryProvider = Provider<CustomFoodRepository>((ref) {
   return CustomFoodRepository(firestore: ref.watch(firestoreProvider));
+});
+
+final recipeRepositoryProvider = Provider<RecipeRepository>((ref) {
+  return RecipeRepository(firestore: ref.watch(firestoreProvider));
 });
 
 final foodSearchServiceProvider = Provider<FoodSearchService>((ref) {

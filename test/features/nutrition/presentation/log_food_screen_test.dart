@@ -6,6 +6,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:fitness_tracker/features/nutrition/data/custom_food_repository.dart';
 import 'package:fitness_tracker/features/nutrition/data/food_search_service.dart';
 import 'package:fitness_tracker/features/nutrition/data/nutrition_repository.dart';
+import 'package:fitness_tracker/features/nutrition/data/recipe_repository.dart';
 import 'package:fitness_tracker/features/nutrition/presentation/log_food_screen.dart';
 
 class MockFirebaseFunctions extends Mock implements FirebaseFunctions {}
@@ -13,6 +14,17 @@ class MockFirebaseFunctions extends Mock implements FirebaseFunctions {}
 class MockHttpsCallable extends Mock implements HttpsCallable {}
 
 class MockHttpsCallableResult<T> extends Mock implements HttpsCallableResult<T> {}
+
+/// The Search tab's Scan pill + Frequent Foods row leave less room for
+/// FoodPicker's own list than the default 800x600 test surface has —
+/// grow the surface so nothing overflows.
+Future<void> pumpTallSurface(WidgetTester tester, Widget widget) async {
+  tester.view.physicalSize = const Size(800, 1400);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+  await tester.pumpWidget(widget);
+}
 
 void main() {
   testWidgets('search mode: pick a result, set grams, save logs the entry', (tester) async {
@@ -42,12 +54,12 @@ void main() {
     var saved = false;
     final selectedDate = DateTime(2026, 8, 20);
 
-    await tester.pumpWidget(
-      MaterialApp(
+    await pumpTallSurface(tester, MaterialApp(
         home: LogFoodScreen(
           uid: 'uid-1',
           nutritionRepository: nutritionRepository,
           searchService: searchService,
+          recipeRepository: RecipeRepository(firestore: firestore),
           date: selectedDate,
           onSaved: () => saved = true,
         ),
@@ -117,12 +129,12 @@ void main() {
     var saved = false;
     final selectedDate = DateTime(2026, 8, 20);
 
-    await tester.pumpWidget(
-      MaterialApp(
+    await pumpTallSurface(tester, MaterialApp(
         home: LogFoodScreen(
           uid: 'uid-1',
           nutritionRepository: nutritionRepository,
           searchService: searchService,
+          recipeRepository: RecipeRepository(firestore: firestore),
           date: selectedDate,
           onSaved: () => saved = true,
         ),
@@ -189,12 +201,12 @@ void main() {
 
     var saved = false;
 
-    await tester.pumpWidget(
-      MaterialApp(
+    await pumpTallSurface(tester, MaterialApp(
         home: LogFoodScreen(
           uid: 'uid-1',
           nutritionRepository: nutritionRepository,
           searchService: searchService,
+          recipeRepository: RecipeRepository(firestore: firestore),
           date: DateTime(2026, 8, 20),
           onSaved: () => saved = true,
         ),
@@ -269,12 +281,12 @@ void main() {
     var saved = false;
     final selectedDate = DateTime(2026, 8, 20);
 
-    await tester.pumpWidget(
-      MaterialApp(
+    await pumpTallSurface(tester, MaterialApp(
         home: LogFoodScreen(
           uid: 'uid-1',
           nutritionRepository: nutritionRepository,
           searchService: searchService,
+          recipeRepository: RecipeRepository(firestore: firestore),
           date: selectedDate,
           onSaved: () => saved = true,
         ),

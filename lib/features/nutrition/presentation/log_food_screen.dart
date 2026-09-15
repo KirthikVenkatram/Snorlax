@@ -6,9 +6,12 @@ import '../../../core/widgets/glass_card.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../data/food_search_service.dart';
 import '../data/nutrition_repository.dart';
+import '../data/recipe_repository.dart';
+import '../domain/catalog_food.dart';
 import '../domain/food_entry.dart';
 import '../domain/food_search_result.dart';
 import 'food_picker.dart';
+import 'scan_food_screen.dart';
 
 class LogFoodScreen extends StatefulWidget {
   const LogFoodScreen({
@@ -16,6 +19,7 @@ class LogFoodScreen extends StatefulWidget {
     required this.uid,
     required this.nutritionRepository,
     required this.searchService,
+    required this.recipeRepository,
     required this.date,
     required this.onSaved,
   });
@@ -23,6 +27,7 @@ class LogFoodScreen extends StatefulWidget {
   final String uid;
   final NutritionRepository nutritionRepository;
   final FoodSearchService searchService;
+  final RecipeRepository recipeRepository;
 
   /// The day the logged entries belong to — the day currently being viewed
   /// on the nutrition home screen, which is not necessarily today.
@@ -45,6 +50,13 @@ class _LogFoodScreenState extends State<LogFoodScreen> with SingleTickerProvider
   bool _saving = false;
   bool _analyzingImage = false;
   String? _error;
+  late Future<List<CatalogItem>> _catalogFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _catalogFuture = _loadCatalog();
+  }
 
   @override
   void dispose() {
@@ -52,6 +64,43 @@ class _LogFoodScreenState extends State<LogFoodScreen> with SingleTickerProvider
     _quantityController.dispose();
     _naturalLanguageController.dispose();
     super.dispose();
+  }
+
+  Future<List<CatalogItem>> _loadCatalog() async {
+    final recent = await widget.nutritionRepository.listFoodLog(widget.uid);
+    final recipes = await widget.recipeRepository.list(widget.uid);
+    return buildFrequentFoods(recentLogNewestFirst: recent, recipes: recipes);
+  }
+
+  Future<void> _logCatalogItem(CatalogItem item) async {
+    await widget.nutritionRepository.logFood(
+      uid: widget.uid,
+      date: widget.date,
+      mealType: _mealType,
+      foodName: item.name,
+      quantityGrams: item.quantityGrams == 0 ? 1 : item.quantityGrams,
+      calories: item.calories,
+      proteinG: item.proteinG,
+      carbsG: item.carbsG,
+      fatG: item.fatG,
+      source: item.source,
+    );
+    widget.onSaved();
+  }
+
+  void _openScan() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ScanFoodScreen(
+          uid: widget.uid,
+          nutritionRepository: widget.nutritionRepository,
+          searchService: widget.searchService,
+          recipeRepository: widget.recipeRepository,
+          date: widget.date,
+          onLogged: widget.onSaved,
+        ),
+      ),
+    );
   }
 
   Future<void> _parseNaturalLanguage() async {
@@ -251,18 +300,47 @@ class _LogFoodScreenState extends State<LogFoodScreen> with SingleTickerProvider
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          DropdownButton<MealType>(
-            value: _mealType,
-            items: MealType.values
-                .map((m) => DropdownMenuItem(value: m, child: Text(m.name)))
-                .toList(),
-            onChanged: (m) => setState(() => _mealType = m ?? _mealType),
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButton<MealType>(
+                  value: _mealType,
+                  isExpanded: true,
+                  items: MealType.values
+                      .map((m) => DropdownMenuItem(value: m, child: Text(m.name)))
+                      .toList(),
+                  onChanged: (m) => setState(() => _mealType = m ?? _mealType),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Material(
+                color: AppColors.accentGreen,
+                shape: const StadiumBorder(),
+                child: InkWell(
+                  customBorder: const StadiumBorder(),
+                  onTap: _openScan,
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.qr_code_scanner, size: 18, color: Colors.black),
+                        SizedBox(width: 6),
+                        Text('Scan', style: TextStyle(color: Colors.black, fontWeight: FontWeight.w700)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           if (_selectedFood != null) ...[
             GlassCard(child: Text(_selectedFood!.name)),
             const SizedBox(height: 16),
           ],
+          _FrequentFoodsRow(future: _catalogFuture, onTap: _logCatalogItem),
+          const SizedBox(height: 16),
           Expanded(
             child: FoodPicker(
               uid: widget.uid,
@@ -390,6 +468,76 @@ class _LogFoodScreenState extends State<LogFoodScreen> with SingleTickerProvider
                 onPressed: _parsedItems.isEmpty ? null : _saveParsedItems,
               ),
       ],
+    );
+  }
+}
+
+/// A horizontal row of tap-to-log cards per the handoff's "FREQUENT FOODS"
+/// section — the user's most-recently-logged foods, their saved recipes,
+/// then a static Indian-first seed catalog to fill it out (see
+/// `buildFrequentFoods`). Tapping a card logs it immediately at its listed
+/// serving, skipping the quantity/save flow — it's meant to be one tap.
+class _FrequentFoodsRow extends StatelessWidget {
+  const _FrequentFoodsRow({required this.future, required this.onTap});
+
+  final Future<List<CatalogItem>> future;
+  final ValueChanged<CatalogItem> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<CatalogItem>>(
+      future: future,
+      builder: (context, snapshot) {
+        final items = snapshot.data;
+        if (items == null || items.isEmpty) return const SizedBox.shrink();
+        return SizedBox(
+          height: 96,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: items.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 10),
+            itemBuilder: (context, index) {
+              final item = items[index];
+              return InkWell(
+                borderRadius: BorderRadius.circular(18),
+                onTap: () => onTap(item),
+                child: SizedBox(
+                  width: 130,
+                  child: GlassCard(
+                    padding: const EdgeInsets.all(10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (item.tag != null)
+                          Text(
+                            item.tag!.toUpperCase(),
+                            style: const TextStyle(
+                              color: AppColors.accentGreen,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                        Text(
+                          item.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontSize: 13),
+                        ),
+                        const Spacer(),
+                        Text(
+                          '${item.calories.toStringAsFixed(0)} kcal',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 }

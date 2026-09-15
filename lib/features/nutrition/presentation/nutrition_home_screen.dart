@@ -7,6 +7,7 @@ import '../../../core/widgets/weekly_bar_chart.dart';
 import '../../auth/data/user_profile_repository.dart';
 import '../data/food_search_service.dart';
 import '../data/nutrition_repository.dart';
+import '../data/recipe_repository.dart';
 import '../domain/food_entry.dart';
 import 'food_entry_detail_screen.dart';
 import 'log_food_screen.dart';
@@ -18,12 +19,14 @@ class NutritionHomeScreen extends StatefulWidget {
     required this.uid,
     required this.nutritionRepository,
     required this.searchService,
+    required this.recipeRepository,
     required this.userProfileRepository,
   });
 
   final String uid;
   final NutritionRepository nutritionRepository;
   final FoodSearchService searchService;
+  final RecipeRepository recipeRepository;
 
   /// Used only to pre-fill the nutrition goals screen from the targets
   /// computed during onboarding when the user has not saved goals yet.
@@ -72,6 +75,7 @@ class _NutritionHomeScreenState extends State<NutritionHomeScreen> {
           uid: widget.uid,
           nutritionRepository: widget.nutritionRepository,
           searchService: widget.searchService,
+          recipeRepository: widget.recipeRepository,
           date: _selectedDate,
           onSaved: () {
             Navigator.of(context).pop();

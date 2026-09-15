@@ -7,6 +7,7 @@ import 'package:fitness_tracker/features/auth/data/user_profile_repository.dart'
 import 'package:fitness_tracker/features/nutrition/data/custom_food_repository.dart';
 import 'package:fitness_tracker/features/nutrition/data/food_search_service.dart';
 import 'package:fitness_tracker/features/nutrition/data/nutrition_repository.dart';
+import 'package:fitness_tracker/features/nutrition/data/recipe_repository.dart';
 import 'package:fitness_tracker/features/nutrition/domain/food_entry.dart';
 import 'package:fitness_tracker/features/nutrition/presentation/nutrition_home_screen.dart';
 
@@ -37,6 +38,7 @@ void main() {
           uid: 'uid-1',
           nutritionRepository: nutritionRepository,
           searchService: searchService,
+          recipeRepository: RecipeRepository(firestore: firestore),
           userProfileRepository: UserProfileRepository(firestore: firestore),
         ),
       ),
@@ -66,6 +68,7 @@ void main() {
           uid: 'uid-1',
           nutritionRepository: nutritionRepository,
           searchService: searchService,
+          recipeRepository: RecipeRepository(firestore: firestore),
           userProfileRepository: UserProfileRepository(firestore: firestore),
         ),
       ),
@@ -103,6 +106,7 @@ void main() {
           uid: 'uid-1',
           nutritionRepository: nutritionRepository,
           searchService: searchService,
+          recipeRepository: RecipeRepository(firestore: firestore),
           userProfileRepository: UserProfileRepository(firestore: firestore),
         ),
       ),
@@ -145,6 +149,7 @@ void main() {
           uid: 'uid-1',
           nutritionRepository: nutritionRepository,
           searchService: searchService,
+          recipeRepository: RecipeRepository(firestore: firestore),
           userProfileRepository: UserProfileRepository(firestore: firestore),
         ),
       ),
@@ -181,6 +186,7 @@ void main() {
           uid: 'uid-1',
           nutritionRepository: nutritionRepository,
           searchService: searchService,
+          recipeRepository: RecipeRepository(firestore: firestore),
           userProfileRepository: UserProfileRepository(firestore: firestore),
         ),
       ),
