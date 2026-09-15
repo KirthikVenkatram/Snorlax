@@ -1,6 +1,17 @@
 enum MealType { breakfast, lunch, dinner, snack }
 
-enum FoodSource { usda, openFoodFacts, nutritionix, llmEstimated, custom }
+enum FoodSource {
+  usda,
+  openFoodFacts,
+  nutritionix,
+  llmEstimated,
+  custom,
+  // Added for Slice A (scan food + recipe builder) — distinct from
+  // `openFoodFacts` (server-side text search) and `custom` (user-typed
+  // macros), since these two are logged through different client flows.
+  openFoodFactsScanned,
+  recipe,
+}
 
 class FoodEntry {
   const FoodEntry({
