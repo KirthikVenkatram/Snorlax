@@ -7,6 +7,7 @@ import '../../features/auth/data/user_profile_repository.dart';
 import '../../features/auth/domain/app_user.dart';
 import '../../features/auth/presentation/auth_providers.dart';
 import '../../features/auth/presentation/onboarding_screen.dart';
+import '../../features/auth/presentation/profile_screen.dart';
 import '../../features/auth/presentation/sign_in_screen.dart';
 import '../../features/adherence/presentation/adherence_providers.dart';
 import '../../features/adherence/presentation/adherence_screen.dart';
@@ -148,6 +149,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return SettingsScreen(
             uid: user.uid,
             email: user.email,
+            adherenceRepository: ref.read(adherenceRepositoryProvider),
+            authRepository: authRepository,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/profile',
+        builder: (context, state) {
+          final user = ref.read(firebaseAuthProvider).currentUser!;
+          return ProfileScreen(
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName,
+            profileRepository: profileRepository,
             adherenceRepository: ref.read(adherenceRepositoryProvider),
             authRepository: authRepository,
           );

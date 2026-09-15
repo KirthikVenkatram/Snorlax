@@ -10,8 +10,8 @@ void main() {
       routes: [
         GoRoute(path: '/more', builder: (context, state) => const MoreTab()),
         GoRoute(
-          path: '/settings',
-          builder: (context, state) => const Scaffold(body: Text('Settings screen')),
+          path: '/profile',
+          builder: (context, state) => const Scaffold(body: Text('Profile screen')),
         ),
         GoRoute(
           path: '/body',
@@ -43,13 +43,13 @@ void main() {
     expect(find.text('Settings'), findsOneWidget);
   });
 
-  testWidgets('tapping Settings navigates there', (tester) async {
+  testWidgets('tapping Settings navigates to the Profile screen', (tester) async {
     await pumpTallSurface(tester, buildRouted());
 
     await tester.tap(find.byKey(const Key('moreNavRow_Settings')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Settings screen'), findsOneWidget);
+    expect(find.text('Profile screen'), findsOneWidget);
   });
 
   testWidgets('tapping Body composition navigates there', (tester) async {

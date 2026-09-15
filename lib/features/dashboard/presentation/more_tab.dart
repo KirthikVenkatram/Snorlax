@@ -40,7 +40,7 @@ const _sections = <(String, List<_NavItem>)>[
   (
     'Account',
     [
-      _NavItem(Icons.settings_outlined, 'Settings', AppColors.textSecondary, '/settings'),
+      _NavItem(Icons.settings_outlined, 'Settings', AppColors.textSecondary, '/profile'),
     ],
   ),
 ];

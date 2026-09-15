@@ -742,3 +742,52 @@ Group E (Sleep, Trends, Streaks) visual-fidelity pass.
   22, `#080910` 92%→55%, hairline bottom border) the handoff calls for —
   everything else in that screen (timer size/colour/glow, set-chip
   states, progress bar) already matched and was left as-is.
+
+### Group A — Sign in, Onboarding, Profile
+
+- **Sign-in**: left as-is. Already matched the screenshot (88px mark,
+  44px "Snorlax", two-line tagline, bottom-anchored pills) from a prior
+  pass; no drift found worth a diff.
+- **Onboarding "Name" field isn't persisted.** The screenshot's step 1
+  shows a Name field, but `UserProfile`/`UserProfileRepository` (and thus
+  the existing `saveProfile` contract this rebuild had to preserve
+  exactly) has no `name` field — only `AppUser.displayName` (from the
+  Google/Apple sign-in provider) carries a name anywhere in this app.
+  Kept the field in the UI for visual fidelity but it's write-only/
+  cosmetic — not wired to any save call, not prefilled. Adding real name
+  storage would mean changing the `UserProfile` schema, which is out of
+  scope for a "preserve existing save behavior exactly" rebuild. Flagging
+  in case product wants a real editable display name later (natural
+  home: `UserProfile` + a Firestore field, surfaced on Profile too).
+- **Onboarding step 3 goal pills show a `-500kcal`/`+500kcal` sub-label,
+  Profile's goal pill doesn't.** Both reuse the new `SegmentedPill`
+  widget (`lib/core/widgets/segmented_pill.dart`), but only Onboarding
+  passes `subLabelBuilder`. There's no screenshot for onboarding step 3
+  (`02-onboarding.png` only shows step 1), so that one follows the plan
+  prose verbatim ("Lose fat -500kcal / Maintain / Build +500kcal").
+  Profile *does* have a screenshot (`12-profile.png`/`13-screen.png`)
+  and it shows a plain single-line "Lose fat | Maintain | Build" with no
+  kcal delta — matched that literally instead of carrying the sub-label
+  over, per "screenshot is primary spec, prose secondary."
+- **Profile's "Reminders / Units / Connected / Export data" rows are
+  static/display-only**, per the plan's explicit allowance ("these can
+  be static/display-only rows if there's no real feature behind them
+  yet") — none of those exist as real features in this app yet, so no
+  fake state or values are shown, just a chevron row.
+- **Adherence-weight editing lives inside a collapsed "Adherence
+  weights" row in Profile's settings list**, reusing the exact
+  validation/save logic from `SettingsScreen` (`lib/features/settings/
+  presentation/settings_screen.dart`) rather than a second copy — same
+  non-negative-and-sum>0 validation, same `AdherenceRepository.
+  setWeights` call. `/settings` itself is untouched and still routes to
+  the old screen for anything still linking to it.
+- **New shared widgets added** (not a parallel styling system — reused
+  by both Onboarding and Profile): `lib/core/widgets/glass_text_field.dart`
+  (labeled rounded glass input — no equivalent existed before this pass)
+  and `lib/core/widgets/segmented_pill.dart` (the Sex/Goal toggle pill).
+- **`ProfileScreen.displayName`** is a new optional constructor param
+  (sourced from `firebaseAuthProvider`'s `currentUser.displayName` in
+  `app_router.dart`) — not present on `SettingsScreen`, added because the
+  screenshot's name header needs a real name and `UserProfile` has none
+  (see the Name-field note above). Falls back to "Signed in" when null,
+  same as `SettingsScreen`'s email fallback pattern.
