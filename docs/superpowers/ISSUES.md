@@ -644,3 +644,101 @@ the UI (not deleting), since the underlying behavior is wanted.
   `SleepScreen` navigates to `SleepCheckInScreen` internally via
   `Navigator.push` (not a named route) so the check-in flow is reachable
   today without touching `app_router.dart`.
+
+## Glass handoff — pixel rebuild
+
+Group E (Sleep, Trends, Streaks) visual-fidelity pass.
+
+- **Sleep stages card denominator changed.** Superseding the "Stages card
+  denominator" note above: switched `_StagesCard` from scaling each lane
+  against the *largest* single stage to scaling against the *sum* of all
+  four stages. The screenshot (`10-sleep.png`) draws each lane as a
+  full-width track (`white@12%`) with the coloured fill as that stage's
+  share of the whole night, not relative to whichever stage happens to be
+  biggest — sum-of-all-four is the only denominator that makes "full width
+  = one full night" true. Also added the legend row
+  (`AWAKE 34M · REM 1H 22M · DEEP 1H 04M · LIGHT 4H 12M`, colour-coded)
+  beneath the lanes to match the screenshot, and removed the old inline
+  per-lane label/minute text.
+- **Streaks grid "current run" color logic — genuinely ambiguous, made a
+  call.** The task description says the grid is neon = qualifying, red = "a
+  miss inside the current run", faint = other miss/no-data. Taken
+  literally, this is contradictory: `StreakCalculator`'s "current streak"
+  is by definition an unbroken run of qualifying days, so there can never
+  be a miss *inside* it. The old code had this backwards anyway — it
+  painted qualifying days inside the current streak red and qualifying
+  days outside it green, and painted every miss the same faint colour
+  regardless of position, which doesn't match the screenshot
+  (`11-streaks-habits.png`) either (its bottom-most, most-recent row shows
+  red misses; older rows show only faint misses).
+  Interpretation used: "the current run" = the most recent calendar week
+  (the last 7 cells / bottom grid row, `newestFirstIndex < 7`), since that
+  matches the screenshot's red row being the most recent one and gives a
+  literal, non-contradictory reading of "the days that are still part of
+  what's currently happening, where a miss is still fresh/alarming" as
+  opposed to older history. Implemented in `_StreakGrid` in
+  `streaks_screen.dart`: qualifying → `accentGreen` + glow (always,
+  regardless of position); non-qualifying within the last 7 days →
+  `AppColors.error`; non-qualifying older than that, or no data →
+  `AppColors.glassFill`. If this doesn't match design intent, the fix is a
+  one-line change to `_currentRunWindowDays` or the window definition in
+  `_StreakGrid.build`.
+- **Trends card titles changed from `headlineMedium` (28px) to a small
+  uppercase kicker (`WEIGHT` / `DISCIPLINE` / `STATS`, `bodySmall`)** to
+  match the kicker style every other card on this screen and on Sleep/
+  Streaks uses (`STAGES`, `LAST 7 NIGHTS`, `LAST 5 WEEKS`) — the original
+  28px headline read oversized next to a small delta line. No screenshot
+  exists for Trends (per the plan, built from README prose only), so this
+  is a consistency call against the rest of the design system rather than
+  a pixel match to a reference image.
+- **Streaks grid card title changed from "Last 35 days" to "LAST 5
+  WEEKS"** (small kicker) to literally match the screenshot's card title
+  text and styling; 35 days = 5 weeks so the meaning is unchanged.
+
+---
+
+## Glass handoff — pixel rebuild
+
+### Group C — Workouts, Active session, Session complete
+
+- **Workouts list: no fake program, no separate "Recent" section.** The
+  mockup's "Push Day A / Pull Day B / Leg Day" rows are a fixed weekly
+  program the real app doesn't have. Kept the row *styling* exactly (type
+  chip, duration, bold name, detail line, gradient pill) but populated it
+  from real `WorkoutRepository.listWorkouts` (newest first), with a
+  "Quick start" row pinned above the list as the real entry point into
+  `QuickStartScreen`. Folded the mockup's separate low-contrast "Recent"
+  card into the single main list instead of building a second, largely
+  redundant section — the main list already *is* "recent" since it's
+  newest-first real history.
+- **"Start" pill relabelled to "View" for logged rows.** The mockup's
+  gradient pill reads "Start" because those rows are upcoming program
+  entries. Real rows in `WorkoutsHomeScreen` are already-completed logs;
+  tapping them opens `WorkoutDetailScreen` to view/edit, not start a
+  session, so the pill on the "Quick start" row alone reads "Start" and
+  every logged-workout row reads "View" — same gradient-pill visual,
+  honest label per row's actual behaviour.
+- **Row name/detail derivation (no fixed program to draw from):**
+  strength → name "Strength session", detail = its own exercise names
+  joined by " · "; cardio → name "Cardio session", detail = its own
+  `distanceKm`/`paceMinPerKm` when present (else no detail line); general
+  → name = the workout's own `notes` (falls back to "Workout"), no
+  detail line (nothing else on a general workout to show). All type
+  chips use the same green per the handoff copy ("neon@16% fill, #00E5A0
+  text — Strength / Cardio / General" — one colour, different labels).
+- **Session complete headline stays a workout summary, not a streak
+  count.** The mockup's "Nice work, that's {n} days." references a
+  training-day streak. `StreakCalculator` now exists (Slice D) but it
+  operates over `DailyAdherenceSummary` history via `AdherenceRepository`
+  — wiring that into `SessionCompleteScreen` would mean threading a new
+  repository + async fetch into a screen the plan explicitly scoped as a
+  **fidelity pass only** ("don't tear those down and rebuild"). Kept the
+  existing real workout-summary headline/subtitle and only adjusted the
+  visual layer (gradient wash now green→red→violet three-stop per the
+  screenshot, stat tile value size bumped for weight). A future pass
+  could pass `WorkoutRepository` + `AdherenceRepository` in and compute a
+  real streak for the headline if that's wanted.
+- **Active session header** got the sticky blurred gradient scrim (blur
+  22, `#080910` 92%→55%, hairline bottom border) the handoff calls for —
+  everything else in that screen (timer size/colour/glow, set-chip
+  states, progress bar) already matched and was left as-is.

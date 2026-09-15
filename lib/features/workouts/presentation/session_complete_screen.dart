@@ -56,8 +56,12 @@ class _SessionCompleteScreenState extends State<SessionCompleteScreen> {
       backgroundColor: Colors.transparent,
       body: DecoratedBox(
         decoration: const BoxDecoration(
+          // Diagonal green -> red -> violet wash, per the handoff screenshot
+          // (screens/06-session-complete.png) — reuses the same three
+          // accent hues as AppColors.celebrationGradient rather than a
+          // fresh two-stop gradient.
           gradient: LinearGradient(
-            colors: [AppColors.accentGreen, AppColors.accentViolet],
+            colors: [AppColors.accentGreen, AppColors.accentBlue, AppColors.accentViolet],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -150,7 +154,7 @@ class _StatTile extends StatelessWidget {
             style: Theme.of(context)
                 .textTheme
                 .headlineMedium
-                ?.copyWith(fontSize: 18, color: Colors.white),
+                ?.copyWith(fontSize: 22, color: Colors.white),
           ),
         ],
       ),

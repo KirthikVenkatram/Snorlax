@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/theme/app_colors.dart';
@@ -224,6 +225,31 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Sticky translucent header per the handoff: blur 22, a near-black
+    // gradient scrim fading from 92% to 55% opacity, and a hairline bottom
+    // border — reads as glass floating over the scrolling content beneath.
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppColors.background.withValues(alpha: 0.92),
+                AppColors.background.withValues(alpha: 0.55),
+              ],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+            border: const Border(bottom: BorderSide(color: AppColors.glassStroke)),
+          ),
+          child: _headerContent(context),
+        ),
+      ),
+    );
+  }
+
+  Widget _headerContent(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 12, 18, 16),
       child: Column(
