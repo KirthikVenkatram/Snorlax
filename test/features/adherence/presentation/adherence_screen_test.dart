@@ -22,8 +22,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Today'), findsOneWidget);
-    expect(find.text('This week'), findsOneWidget);
+    expect(find.text('TODAY'), findsOneWidget);
+    expect(find.text('THIS WEEK'), findsOneWidget);
     expect(find.byKey(const Key('dailySupportiveSummary')), findsOneWidget);
+    expect(find.byKey(const Key('weeklySupportiveSummary')), findsOneWidget);
+    expect(find.text('Nutrition'), findsOneWidget);
+    expect(find.text('Training'), findsOneWidget);
+    expect(find.text('Habits'), findsOneWidget);
+    expect(find.text('Recovery'), findsOneWidget);
   });
 }
