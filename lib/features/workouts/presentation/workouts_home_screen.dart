@@ -8,6 +8,7 @@ import '../domain/workout.dart';
 import 'exercise_library_screen.dart';
 import 'log_general_screen.dart';
 import 'log_strength_screen.dart';
+import 'quick_start_screen.dart';
 import 'workout_detail_screen.dart';
 
 class WorkoutsHomeScreen extends StatefulWidget {
@@ -91,6 +92,22 @@ class _WorkoutsHomeScreenState extends State<WorkoutsHomeScreen> {
     );
   }
 
+  Future<void> _openQuickStart() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => QuickStartScreen(
+          uid: widget.uid,
+          workoutRepository: widget.workoutRepository,
+          exerciseRepository: widget.exerciseRepository,
+        ),
+      ),
+    );
+    // The pushed flow (QuickStart -> ActiveSession -> SessionComplete) uses
+    // pushReplacement throughout and may have written a new workout before
+    // returning here — refresh regardless of how the user got back.
+    if (mounted) _refresh();
+  }
+
   Future<void> _showLogOptions() async {
     final choice = await showModalBottomSheet<String>(
       context: context,
@@ -98,6 +115,12 @@ class _WorkoutsHomeScreenState extends State<WorkoutsHomeScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            ListTile(
+              leading: const Icon(Icons.play_circle_outline),
+              title: const Text('Quick start'),
+              subtitle: const Text('Run a timed session with set-completion tracking'),
+              onTap: () => Navigator.of(sheetContext).pop('quick-start'),
+            ),
             ListTile(
               leading: const Icon(Icons.fitness_center),
               title: const Text('Log strength workout'),
@@ -114,6 +137,7 @@ class _WorkoutsHomeScreenState extends State<WorkoutsHomeScreen> {
     );
 
     if (!mounted) return;
+    if (choice == 'quick-start') await _openQuickStart();
     if (choice == 'strength') await _openLogStrength();
     if (choice == 'general') await _openLogGeneral();
   }
