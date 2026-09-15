@@ -33,6 +33,70 @@ void main() {
     expect(find.text('Reject'), findsOneWidget);
   });
 
+  testWidgets('accepting a pending recommendation calls handleCommand and refreshes status',
+      (tester) async {
+    final firestore = FakeFirebaseFirestore();
+    await firestore.collection('users').doc('u1').collection('coachRecommendations').doc('r1').set({
+      'summary': 'Small deficit adjustment',
+      'rationale': 'Progress has stalled for 3 weeks.',
+      'status': 'pending',
+      'createdAt': '2026-01-01T00:00:00.000Z',
+    });
+    final functions = MockFirebaseFunctions();
+    final callable = MockHttpsCallable();
+    final result = MockHttpsCallableResult<Map<String, dynamic>>();
+    when(() => functions.httpsCallable('handleCommand')).thenReturn(callable);
+    when(() => callable.call<Map<String, dynamic>>(any())).thenAnswer((_) async {
+      await firestore
+          .collection('users')
+          .doc('u1')
+          .collection('coachRecommendations')
+          .doc('r1')
+          .update({'status': 'accepted'});
+      return result;
+    });
+    final service = CoachService(firestore: firestore, functions: functions);
+
+    await tester.pumpWidget(
+      MaterialApp(home: CoachRecommendationsScreen(uid: 'u1', service: service)),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Accept'));
+    await tester.pumpAndSettle();
+
+    verify(() => functions.httpsCallable('handleCommand')).called(1);
+    expect(find.text('Status: accepted'), findsOneWidget);
+    expect(find.text('Accept'), findsNothing);
+  });
+
+  testWidgets('the audit log toggle switches to the event trail and back', (tester) async {
+    final firestore = FakeFirebaseFirestore();
+    await firestore.collection('users').doc('u1').collection('coachEvents').doc('e1').set({
+      'recommendationId': 'r1',
+      'outcome': 'applied',
+      'decision': 'approve',
+      'reason': 'User accepted.',
+      'createdAt': '2026-01-02T00:00:00.000Z',
+    });
+    final service = CoachService(firestore: firestore, functions: MockFirebaseFunctions());
+
+    await tester.pumpWidget(
+      MaterialApp(home: CoachRecommendationsScreen(uid: 'u1', service: service)),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('coachAuditToggle')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Outcome: applied'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('coachAuditToggle')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No recommendations yet.'), findsOneWidget);
+  });
+
   testWidgets('shows an empty state with no recommendations', (tester) async {
     final firestore = FakeFirebaseFirestore();
     final service = CoachService(firestore: firestore, functions: MockFirebaseFunctions());

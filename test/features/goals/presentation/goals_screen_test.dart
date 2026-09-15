@@ -21,6 +21,31 @@ void main() {
     expect((await repository.listGoals('u')).single.name, 'Reduce waist');
   });
 
+  testWidgets('goals screen shows target value and unit on existing goals', (tester) async {
+    final repository = GoalRepository(firestore: FakeFirebaseFirestore());
+    await repository.createGoal(
+      'u',
+      FitnessGoal(
+        id: 'g1',
+        name: 'Bench 100kg',
+        category: GoalCategory.performance,
+        status: GoalStatus.active,
+        priority: 1,
+        targetValue: 100,
+        unit: 'kg',
+        createdAt: DateTime(2026, 8, 1),
+        updatedAt: DateTime(2026, 8, 1),
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: GoalsScreen(uid: 'u', repository: repository, onChanged: () {})),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('100 kg'), findsOneWidget);
+  });
+
   testWidgets('choosing primary category shows the primary-replacement notice', (tester) async {
     final repository = GoalRepository(firestore: FakeFirebaseFirestore());
 
@@ -29,9 +54,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('goalCategoryDropdown')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('primary').last);
+    await tester.tap(find.text('Primary'));
     await tester.pumpAndSettle();
 
     expect(
@@ -61,8 +84,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Bench 100kg'), findsOneWidget);
-    expect(find.textContaining('performance'), findsOneWidget);
-    expect(find.textContaining('active'), findsWidgets);
+    expect(find.textContaining('Performance · active'), findsOneWidget);
   });
 
   testWidgets('archiving a goal confirms then calls archiveGoal and updates status', (

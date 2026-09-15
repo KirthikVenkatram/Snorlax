@@ -861,3 +861,13 @@ Group E (Sleep, Trends, Streaks) visual-fidelity pass.
   is clean on the file and it was read/reviewed manually against the
   screenshot; a future pass could add a fake `MobileScannerController`
   harness if scan-flow regressions become a real risk.
+
+## Glass handoff — Group G (Coach/Goals)
+
+- **Coach status colours**: `pending` uses `AppColors.warningYellow`, `accepted` uses `accentGreen`, `rejected` uses `error` — the handoff mockup (`15-coach.png`) only shows a plain grey "Status: pending"/"Status: accepted" text line with no colour coding, but the rest of the app's glass cards consistently colour-code status via the card glow + status text, so this extends that established pattern rather than copying the mockup's flatter placeholder text verbatim.
+- **Coach header toggle wording**: mockup shows a static "Audit log" pill; made it a real toggle whose label flips to "Recommendations" when the audit view is active, since a static label would leave no way back to the recommendations list.
+- **"Summarize my progress"** isn't in the coach mockup at all (out of scope screen), but it's real existing functionality (`CoachService.summarizeProgress`) with an existing test — kept it as a secondary glass pill below the primary CTA rather than dropping the feature.
+- **Goals category pills**: handoff mockup (`16-goals.png`) shows placeholder pill labels "Physique / Strength / Endurance / Habit", but `FitnessGoal.category` is actually `GoalCategory { primary, physique, performance, lifestyle }`. Used the real enum values (capitalized: Primary/Physique/Performance/Lifestyle) via `SegmentedPill<GoalCategory>` instead of inventing categories that don't exist in the domain model, per the task's explicit instruction not to guess values.
+- **Goals list item target display**: mockup shows "100 kg" inline after the category/status line; only rendered when `goal.targetValue` is non-null (many existing goals have no target), formatted via `toStringAsFixed(0)` for whole numbers and `.1` otherwise — no fabricated numbers, all from `FitnessGoal.targetValue`/`unit`.
+- **Kept priority field and target-date picker** in the goal form even though neither appears in the mockup — both are real existing save fields (`priority`, `targetDate`) and the task said restyle, not reinvent the form.
+- Updated `goals_screen_test.dart` for the `SegmentedPill` replacing the old `DropdownButtonFormField` (tap pill text directly instead of opening a dropdown menu) and disambiguated a text assertion that became ambiguous once the pill option label and the list-item caption both contain "Performance". Added new tests: coach accept flow + audit-log toggle round-trip, goals target-value/unit display.

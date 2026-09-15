@@ -1,10 +1,18 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/ambient_background.dart';
 import '../../../core/widgets/glass_card.dart';
+import '../../../core/widgets/glass_text_field.dart';
 import '../../../core/widgets/primary_button.dart';
+import '../../../core/widgets/section_label.dart';
+import '../../../core/widgets/segmented_pill.dart';
 import '../data/goal_repository.dart';
 import '../domain/fitness_goal.dart';
 
+/// Glass-UI rebuild of the Goals screen per handoff screen 16: a list of
+/// current goals above a glass "New goal" form. Every goal shown comes from
+/// [GoalRepository] — the category pills reuse [FitnessGoal.category]'s
+/// real enum values rather than the mockup's placeholder labels.
 class GoalsScreen extends StatefulWidget {
   const GoalsScreen({
     super.key,
@@ -160,102 +168,121 @@ class _GoalsScreenState extends State<GoalsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Goals')),
-      body: SafeArea(
-        child: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : ListView(
-                padding: const EdgeInsets.all(24),
-                children: [
-                  if (_goals.isNotEmpty) ...[
-                    Text('Your goals', style: textTheme.headlineMedium),
-                    const SizedBox(height: 12),
-                    for (final goal in _goals)
-                      _GoalListItem(goal: goal, onArchive: () => _archive(goal)),
-                    const SizedBox(height: 24),
-                  ],
-                  GlassCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text('New goal', style: textTheme.headlineMedium),
-                        const SizedBox(height: 12),
-                        TextField(
-                          key: const Key('goalNameField'),
-                          controller: _nameController,
-                          decoration: const InputDecoration(labelText: 'Goal name'),
-                        ),
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<GoalCategory>(
-                          key: const Key('goalCategoryDropdown'),
-                          initialValue: _category,
-                          decoration: const InputDecoration(labelText: 'Category'),
-                          items: [
-                            for (final category in GoalCategory.values)
-                              DropdownMenuItem(value: category, child: Text(category.name)),
-                          ],
-                          onChanged: (value) {
-                            if (value == null) return;
-                            setState(() => _category = value);
-                          },
-                        ),
-                        if (_category == GoalCategory.primary) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            'Making this primary goal active archives the previous primary goal.',
-                            style: textTheme.bodyMedium,
-                          ),
-                        ],
-                        const SizedBox(height: 12),
-                        TextField(
-                          key: const Key('goalTargetValueField'),
-                          controller: _targetValueController,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          decoration: const InputDecoration(labelText: 'Target value (optional)'),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          key: const Key('goalUnitField'),
-                          controller: _unitController,
-                          decoration: const InputDecoration(labelText: 'Unit (optional)'),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          key: const Key('goalPriorityField'),
-                          controller: _priorityController,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(labelText: 'Priority'),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                _targetDate == null
-                                    ? 'No target date set'
-                                    : 'Target date: ${_targetDate!.toIso8601String().split('T').first}',
-                                style: textTheme.bodyMedium,
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: _pickTargetDate,
-                              child: const Text('Pick date'),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-                        PrimaryButton(label: 'Save goal', onPressed: _save),
-                      ],
+      backgroundColor: Colors.transparent,
+      body: AmbientBackground(
+        child: SafeArea(
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : ListView(
+                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+                  children: [
+                    Text(
+                      'Goals',
+                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontSize: 28),
                     ),
-                  ),
-                ],
-              ),
+                    const SizedBox(height: 20),
+                    if (_goals.isNotEmpty) ...[
+                      SectionLabel('Your goals'),
+                      const SizedBox(height: 12),
+                      for (final goal in _goals) _GoalListItem(goal: goal, onArchive: () => _archive(goal)),
+                      const SizedBox(height: 12),
+                    ],
+                    GlassCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Text(
+                            'New goal',
+                            style: TextStyle(color: AppColors.textPrimary, fontSize: 17, fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: 14),
+                          GlassTextField(
+                            fieldKey: const Key('goalNameField'),
+                            label: 'Goal name',
+                            controller: _nameController,
+                          ),
+                          const SizedBox(height: 14),
+                          const Text('Category', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                          const SizedBox(height: 6),
+                          SegmentedPill<GoalCategory>(
+                            key: const Key('goalCategoryPill'),
+                            options: GoalCategory.values,
+                            value: _category,
+                            labelBuilder: (c) => _categoryLabel(c),
+                            onChanged: (value) => setState(() => _category = value),
+                          ),
+                          if (_category == GoalCategory.primary) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              'Making this primary goal active archives the previous primary goal.',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ],
+                          const SizedBox(height: 14),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: GlassTextField(
+                                  fieldKey: const Key('goalTargetValueField'),
+                                  label: 'Target value',
+                                  controller: _targetValueController,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: GlassTextField(
+                                  fieldKey: const Key('goalUnitField'),
+                                  label: 'Unit',
+                                  controller: _unitController,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          GlassTextField(
+                            fieldKey: const Key('goalPriorityField'),
+                            label: 'Priority',
+                            controller: _priorityController,
+                            keyboardType: TextInputType.number,
+                          ),
+                          const SizedBox(height: 14),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  _targetDate == null
+                                      ? 'No target date set'
+                                      : 'Target date: ${_targetDate!.toIso8601String().split('T').first}',
+                                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: _pickTargetDate,
+                                child: const Text('Pick date'),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          PrimaryButton(label: 'Save goal', onPressed: _save),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+        ),
       ),
     );
   }
 }
+
+String _categoryLabel(GoalCategory category) => switch (category) {
+      GoalCategory.primary => 'Primary',
+      GoalCategory.physique => 'Physique',
+      GoalCategory.performance => 'Performance',
+      GoalCategory.lifestyle => 'Lifestyle',
+    };
 
 class _GoalListItem extends StatelessWidget {
   const _GoalListItem({required this.goal, required this.onArchive});
@@ -265,37 +292,44 @@ class _GoalListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
     final isArchived = goal.status == GoalStatus.archived;
+    final target = goal.targetValue != null
+        ? '${goal.targetValue!.toStringAsFixed(goal.targetValue! % 1 == 0 ? 0 : 1)}${goal.unit != null ? ' ${goal.unit}' : ''}'
+        : null;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Opacity(
         opacity: isArchived ? 0.5 : 1.0,
         child: GlassCard(
+          glowColor: _StatusDot._colorFor(goal.status),
           child: Row(
             children: [
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(goal.name, style: textTheme.bodyLarge),
+                    Text(
+                      goal.name,
+                      style: const TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w700),
+                    ),
                     const SizedBox(height: 4),
                     Text(
-                      '${goal.category.name} • ${goal.status.name}',
-                      style: textTheme.bodyMedium,
+                      '${_categoryLabel(goal.category)} · ${goal.status.name}'
+                      '${target != null ? ' · $target' : ''}',
+                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: 12),
               _StatusDot(status: goal.status),
-              if (!isArchived)
-                IconButton(
+              if (!isArchived) ...[
+                const SizedBox(width: 8),
+                _ArchiveButton(
                   key: Key('goalArchiveButton_${goal.id}'),
-                  icon: const Icon(Icons.archive_outlined),
-                  color: AppColors.textSecondary,
-                  tooltip: 'Archive goal',
-                  onPressed: onArchive,
+                  onTap: onArchive,
                 ),
+              ],
             ],
           ),
         ),
@@ -309,18 +343,48 @@ class _StatusDot extends StatelessWidget {
 
   final GoalStatus status;
 
+  static Color _colorFor(GoalStatus status) => switch (status) {
+        GoalStatus.active => AppColors.accentGreen,
+        GoalStatus.paused => AppColors.accentViolet,
+        GoalStatus.completed => AppColors.accentBlue,
+        GoalStatus.archived => AppColors.textSecondary,
+      };
+
   @override
   Widget build(BuildContext context) {
-    final color = switch (status) {
-      GoalStatus.active => AppColors.accentGreen,
-      GoalStatus.paused => AppColors.accentViolet,
-      GoalStatus.completed => AppColors.accentBlue,
-      GoalStatus.archived => AppColors.textSecondary,
-    };
+    final color = _colorFor(status);
     return Container(
       width: 10,
       height: 10,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        boxShadow: [BoxShadow(color: color.withValues(alpha: 0.6), blurRadius: 6)],
+      ),
+    );
+  }
+}
+
+/// Small round glass icon button used for the archive control per the
+/// handoff's list-item affordance.
+class _ArchiveButton extends StatelessWidget {
+  const _ArchiveButton({super.key, required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.glassFill,
+      shape: const CircleBorder(side: BorderSide(color: AppColors.glassStroke)),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: const Padding(
+          padding: EdgeInsets.all(8),
+          child: Icon(Icons.archive_outlined, size: 16, color: AppColors.textSecondary),
+        ),
+      ),
     );
   }
 }
