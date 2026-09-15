@@ -1,22 +1,26 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 
 class _TabSpec {
-  const _TabSpec(this.icon, this.activeIcon, this.label, this.color);
+  const _TabSpec(this.icon, this.activeIcon, this.label);
 
   final IconData icon;
   final IconData activeIcon;
   final String label;
-  final Color color;
 }
 
+// Destinations kept as the app's real 5-tab IA (Home/Nutrition/Train/Coach/
+// More) — the handoff's "Today/Train/Fuel/Rest/Me" set swaps Coach for a
+// Sleep tab, which is an information-architecture change, not a visual one,
+// so it's out of scope for a pixel-restyle pass. Logged in ISSUES.md.
 const _tabs = [
-  _TabSpec(Icons.home_outlined, Icons.home, 'Home', AppColors.accentBlue),
-  _TabSpec(Icons.restaurant_outlined, Icons.restaurant, 'Nutrition', AppColors.accentGreen),
-  _TabSpec(Icons.fitness_center_outlined, Icons.fitness_center, 'Train', AppColors.accentViolet),
-  _TabSpec(Icons.auto_awesome_outlined, Icons.auto_awesome, 'Coach', AppColors.accentAmber),
-  _TabSpec(Icons.grid_view_outlined, Icons.grid_view, 'More', AppColors.textSecondary),
+  _TabSpec(Icons.home_outlined, Icons.home, 'Home'),
+  _TabSpec(Icons.restaurant_outlined, Icons.restaurant, 'Nutrition'),
+  _TabSpec(Icons.fitness_center_outlined, Icons.fitness_center, 'Train'),
+  _TabSpec(Icons.auto_awesome_outlined, Icons.auto_awesome, 'Coach'),
+  _TabSpec(Icons.grid_view_outlined, Icons.grid_view, 'More'),
 ];
 
 /// The app's persistent shell: five tabs behind a bottom nav bar instead of
@@ -54,37 +58,96 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
-    final screens = [_home, widget.nutrition, widget.train, widget.coach, widget.more];
+    final screens = [
+      _home,
+      widget.nutrition,
+      widget.train,
+      widget.coach,
+      widget.more,
+    ];
 
     return Scaffold(
       body: IndexedStack(index: _index, children: screens),
-      bottomNavigationBar: _CyberTabBar(index: _index, onChanged: _setIndex),
+      bottomNavigationBar: _GlassTabBar(index: _index, onChanged: _setIndex),
     );
   }
 }
 
-class _CyberTabBar extends StatelessWidget {
-  const _CyberTabBar({required this.index, required this.onChanged});
+/// Floating glass pill tab bar per the handoff nav spec: 14px side inset,
+/// fully rounded, blur 30, white@10 fill, white@18 border, inner highlight,
+/// selected item gets a white@22 pill with neon text.
+class _GlassTabBar extends StatelessWidget {
+  const _GlassTabBar({required this.index, required this.onChanged});
 
   final int index;
   final ValueChanged<int> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        gradient: AppColors.surfaceGradient,
-        border: Border(top: BorderSide(color: Color(0x40FF2E9A), width: 1)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: 64,
-          child: Row(
-            children: [
-              for (var i = 0; i < _tabs.length; i++)
-                Expanded(child: _TabButton(spec: _tabs[i], selected: i == index, onTap: () => onChanged(i))),
-            ],
+    return SafeArea(
+      top: false,
+      minimum: const EdgeInsets.only(bottom: 16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+            child: SizedBox(
+              height: 72,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: AppColors.glassFill,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: AppColors.glassStrokeStrong),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x80000000),
+                      blurRadius: 34,
+                      offset: Offset(0, 14),
+                    ),
+                  ],
+                ),
+                child: Stack(
+                  children: [
+                    Positioned(
+                      top: 0,
+                      left: 24,
+                      right: 24,
+                      child: Container(
+                        height: 1,
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              AppColors.glassHighlight,
+                              Colors.transparent,
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 6,
+                      ),
+                      child: Row(
+                        children: [
+                          for (var i = 0; i < _tabs.length; i++)
+                            Expanded(
+                              child: _TabButton(
+                                spec: _tabs[i],
+                                selected: i == index,
+                                onTap: () => onChanged(i),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -93,7 +156,11 @@ class _CyberTabBar extends StatelessWidget {
 }
 
 class _TabButton extends StatelessWidget {
-  const _TabButton({required this.spec, required this.selected, required this.onTap});
+  const _TabButton({
+    required this.spec,
+    required this.selected,
+    required this.onTap,
+  });
 
   final _TabSpec spec;
   final bool selected;
@@ -101,43 +168,37 @@ class _TabButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? spec.color : AppColors.textSecondary;
+    final color = selected ? AppColors.accentGreen : AppColors.textSecondary;
     return InkWell(
+      borderRadius: BorderRadius.circular(999),
       onTap: onTap,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          SizedBox(
-            height: 9,
-            child: Center(
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOut,
-                width: selected ? 20 : 0,
-                height: 3,
-                decoration: BoxDecoration(
-                  color: spec.color,
-                  borderRadius: BorderRadius.circular(2),
-                  boxShadow: selected
-                      ? [BoxShadow(color: spec.color.withValues(alpha: 0.7), blurRadius: 8)]
-                      : null,
-                ),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0x38FFFFFF) : Colors.transparent,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              selected ? spec.activeIcon : spec.icon,
+              color: color,
+              size: 20,
+            ),
+            const SizedBox(height: 3),
+            Text(
+              spec.label.toUpperCase(),
+              style: AppTypography.mono(
+                fontSize: 9,
+                color: color,
+                letterSpacing: 0.6,
               ),
             ),
-          ),
-          TweenAnimationBuilder<Color?>(
-            tween: ColorTween(end: color),
-            duration: const Duration(milliseconds: 220),
-            builder: (context, animatedColor, _) => AnimatedScale(
-              scale: selected ? 1.12 : 1.0,
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOut,
-              child: Icon(selected ? spec.activeIcon : spec.icon, color: animatedColor, size: 22),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(spec.label.toUpperCase(), style: AppTypography.mono(fontSize: 9, color: color, letterSpacing: 0.8)),
-        ],
+          ],
+        ),
       ),
     );
   }
