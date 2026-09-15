@@ -18,6 +18,7 @@ const _sections = <(String, List<_NavItem>)>[
     [
       _NavItem(Icons.monitor_weight_outlined, 'Body composition', AppColors.accentViolet, '/body'),
       _NavItem(Icons.checklist_outlined, 'Habits', AppColors.accentAmber, '/habits'),
+      _NavItem(Icons.bedtime_outlined, 'Sleep', AppColors.accentViolet, '/sleep'),
     ],
   ),
   (
@@ -25,6 +26,8 @@ const _sections = <(String, List<_NavItem>)>[
     [
       _NavItem(Icons.insights_outlined, 'Adherence', AppColors.accentBlue, '/adherence'),
       _NavItem(Icons.bedtime_outlined, 'Readiness', AppColors.accentViolet, '/readiness'),
+      _NavItem(Icons.show_chart, 'Trends', AppColors.accentGreen, '/trends'),
+      _NavItem(Icons.local_fire_department_outlined, 'Streaks', AppColors.accentBlue, '/streaks'),
     ],
   ),
   (

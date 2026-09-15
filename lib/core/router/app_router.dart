@@ -21,14 +21,20 @@ import '../../features/goals/presentation/goal_providers.dart';
 import '../../features/goals/presentation/goals_screen.dart';
 import '../../features/habits/presentation/habit_providers.dart';
 import '../../features/habits/presentation/habits_screen.dart';
+import '../../features/habits/presentation/streaks_screen.dart';
 import '../../features/meal_planning/presentation/meal_planning_providers.dart';
 import '../../features/meal_planning/presentation/meal_planning_screen.dart';
 import '../../features/nutrition/presentation/nutrition_home_screen.dart';
 import '../../features/nutrition/presentation/nutrition_providers.dart';
+import '../../features/nutrition/presentation/recipe_builder_screen.dart';
 import '../../features/readiness/presentation/readiness_check_in_screen.dart';
 import '../../features/readiness/presentation/readiness_providers.dart';
 import '../../features/settings/presentation/settings_screen.dart';
+import '../../features/sleep/presentation/sleep_check_in_screen.dart';
+import '../../features/sleep/presentation/sleep_providers.dart';
+import '../../features/sleep/presentation/sleep_screen.dart';
 import '../../features/strava/presentation/strava_providers.dart';
+import '../../features/trends/presentation/trends_screen.dart';
 import '../../features/workouts/presentation/exercise_library_screen.dart';
 import '../../features/workouts/presentation/workout_providers.dart';
 import '../../features/workouts/presentation/workouts_home_screen.dart';
@@ -108,6 +114,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               uid: uid,
               nutritionRepository: ref.read(nutritionRepositoryProvider),
               adherenceRepository: ref.read(adherenceRepositoryProvider),
+              workoutRepository: ref.read(workoutRepositoryProvider),
+              sleepRepository: ref.read(sleepRepositoryProvider),
+              habitRepository: ref.read(habitRepositoryProvider),
               onNavigateToTab: onNavigateToTab,
             ),
             nutrition: NutritionHomeScreen(
@@ -285,6 +294,59 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             planRepository: ref.read(mealPlanRepositoryProvider),
             priceRepository: ref.read(priceRepositoryProvider),
             coachService: ref.read(coachServiceProvider),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/nutrition/recipe',
+        builder: (context, state) {
+          final uid = ref.read(firebaseAuthProvider).currentUser!.uid;
+          return RecipeBuilderScreen(
+            uid: uid,
+            date: DateTime.now(),
+            searchService: ref.read(foodSearchServiceProvider),
+            recipeRepository: ref.read(recipeRepositoryProvider),
+            nutritionRepository: ref.read(nutritionRepositoryProvider),
+            onSaved: () => Navigator.of(context).pop(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/sleep',
+        builder: (context, state) {
+          final uid = ref.read(firebaseAuthProvider).currentUser!.uid;
+          return SleepScreen(uid: uid, repository: ref.read(sleepRepositoryProvider));
+        },
+      ),
+      GoRoute(
+        path: '/sleep/check-in',
+        builder: (context, state) {
+          final uid = ref.read(firebaseAuthProvider).currentUser!.uid;
+          return SleepCheckInScreen(uid: uid, repository: ref.read(sleepRepositoryProvider));
+        },
+      ),
+      GoRoute(
+        path: '/trends',
+        builder: (context, state) {
+          final uid = ref.read(firebaseAuthProvider).currentUser!.uid;
+          return TrendsScreen(
+            uid: uid,
+            bodyCompositionRepository: ref.read(bodyCompositionRepositoryProvider),
+            adherenceRepository: ref.read(adherenceRepositoryProvider),
+            nutritionRepository: ref.read(nutritionRepositoryProvider),
+            workoutRepository: ref.read(workoutRepositoryProvider),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/streaks',
+        builder: (context, state) {
+          final uid = ref.read(firebaseAuthProvider).currentUser!.uid;
+          return StreaksScreen(
+            uid: uid,
+            habitRepository: ref.read(habitRepositoryProvider),
+            adherenceRepository: ref.read(adherenceRepositoryProvider),
+            onBack: () => GoRouter.of(context).go('/dashboard'),
           );
         },
       ),

@@ -6,17 +6,20 @@ import 'package:fitness_tracker/features/dashboard/presentation/home_tab.dart';
 import 'package:fitness_tracker/features/habits/data/habit_repository.dart';
 import 'package:fitness_tracker/features/nutrition/data/nutrition_repository.dart';
 import 'package:fitness_tracker/features/readiness/data/readiness_repository.dart';
+import 'package:fitness_tracker/features/sleep/data/sleep_repository.dart';
 import 'package:fitness_tracker/features/workouts/data/workout_repository.dart';
 
 void main() {
   Widget buildHome({required ValueChanged<int> onNavigateToTab}) {
     final firestore = FakeFirebaseFirestore();
     final nutritionRepository = NutritionRepository(firestore: firestore);
+    final workoutRepository = WorkoutRepository(firestore: firestore);
+    final habitRepository = HabitRepository(firestore: firestore);
     final adherenceRepository = AdherenceRepository(
       firestore: firestore,
       nutritionRepository: nutritionRepository,
-      workoutRepository: WorkoutRepository(firestore: firestore),
-      habitRepository: HabitRepository(firestore: firestore),
+      workoutRepository: workoutRepository,
+      habitRepository: habitRepository,
       readinessRepository: ReadinessRepository(firestore: firestore),
     );
 
@@ -25,6 +28,9 @@ void main() {
         uid: 'u1',
         nutritionRepository: nutritionRepository,
         adherenceRepository: adherenceRepository,
+        workoutRepository: workoutRepository,
+        sleepRepository: SleepRepository(firestore: firestore),
+        habitRepository: habitRepository,
         onNavigateToTab: onNavigateToTab,
       ),
     );
