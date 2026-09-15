@@ -213,53 +213,72 @@ class _StagesCard extends StatelessWidget {
 
   final SleepStageMinutes stages;
 
+  static const _awakeColor = AppColors.accentBlue; // token is actually red (FF3B24)
+  static const _remColor = AppColors.accentViolet;
+  static const _deepColor = AppColors.accentGreen;
+  static const _lightColor = Colors.white;
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final total = [stages.awake, stages.rem, stages.deep, stages.light]
-        .reduce((a, b) => a > b ? a : b)
-        .clamp(1, 1 << 30);
+    // Full-width lane bars: each track represents the whole night, so the
+    // fill fraction is this stage's share of total time in bed — not
+    // relative to whichever stage happens to be largest.
+    final total = (stages.awake + stages.rem + stages.deep + stages.light).clamp(1, 1 << 30);
     return GlassCard(
       key: const Key('sleepStagesCard'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('STAGES', style: textTheme.bodySmall),
+          const SizedBox(height: 14),
+          _lane(stages.awake, total, _awakeColor),
+          _lane(stages.rem, total, _remColor),
+          _lane(stages.deep, total, _deepColor),
+          _lane(stages.light, total, _lightColor.withValues(alpha: 0.65)),
           const SizedBox(height: 12),
-          _lane('Awake', stages.awake, total, AppColors.accentBlue),
-          _lane('REM', stages.rem, total, AppColors.accentViolet),
-          _lane('Deep', stages.deep, total, AppColors.accentGreen),
-          _lane('Light', stages.light, total, AppColors.textSecondary),
+          Wrap(
+            spacing: 16,
+            runSpacing: 6,
+            children: [
+              _legendEntry('AWAKE', stages.awake, _awakeColor),
+              _legendEntry('REM', stages.rem, _remColor),
+              _legendEntry('DEEP', stages.deep, _deepColor),
+              _legendEntry('LIGHT', stages.light, _lightColor),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _lane(String label, int minutes, int total, Color color) {
+  Widget _lane(int minutes, int total, Color color) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 48,
-            child: Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600)),
-          ),
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: LinearProgressIndicator(
-                value: minutes / total,
-                minHeight: 8,
-                backgroundColor: AppColors.glassFill,
-                color: color,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text('${minutes}m', style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
-        ],
+      padding: const EdgeInsets.only(bottom: 8),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: LinearProgressIndicator(
+          value: minutes / total,
+          minHeight: 10,
+          backgroundColor: Colors.white.withValues(alpha: 0.12),
+          color: color,
+        ),
       ),
     );
+  }
+
+  Widget _legendEntry(String label, int minutes, Color color) {
+    return Text(
+      '$label ${_formatMinutes(minutes)}',
+      style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.5),
+    );
+  }
+
+  static String _formatMinutes(int minutes) {
+    final h = minutes ~/ 60;
+    final m = minutes % 60;
+    if (h <= 0) return '${m}M';
+    return '${h}H ${m.toString().padLeft(2, '0')}M';
   }
 }
 

@@ -206,11 +206,10 @@ class _StreaksScreenState extends State<StreaksScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Text('Last 35 days', style: textTheme.headlineMedium),
+                          Text('LAST 5 WEEKS', style: textTheme.bodySmall),
                           const SizedBox(height: 12),
                           _StreakGrid(
                             daysNewestFirst: _dailySummariesNewestFirst,
-                            currentStreak: _overall.current,
                             qualifies: _qualifies,
                           ),
                         ],
@@ -355,13 +354,18 @@ class _HabitRow extends StatelessWidget {
 class _StreakGrid extends StatelessWidget {
   const _StreakGrid({
     required this.daysNewestFirst,
-    required this.currentStreak,
     required this.qualifies,
   });
 
   final List<DailyAdherenceSummary> daysNewestFirst;
-  final int currentStreak;
   final bool Function(DailyAdherenceSummary) qualifies;
+
+  /// A miss inside the most recent 7 days ("this week", still in progress)
+  /// reads as a red warning; a miss further back is just faint history.
+  /// `currentStreak` itself can't be used for this split — by definition
+  /// every day within a current streak already qualifies, so there is never
+  /// a "miss inside the streak" to highlight.
+  static const _currentRunWindowDays = 7;
 
   @override
   Widget build(BuildContext context) {
@@ -384,18 +388,23 @@ class _StreakGrid extends StatelessWidget {
         final newestFirstIndex = oldestFirst.length - 1 - index;
         final day = oldestFirst[index];
         final isQualifying = qualifies(day);
-        final isCurrentRun = isQualifying && newestFirstIndex < currentStreak;
+        final isInCurrentRun = newestFirstIndex < _currentRunWindowDays;
 
-        final color = !isQualifying
-            ? AppColors.glassFill
-            : (isCurrentRun ? AppColors.accentBlue : AppColors.accentGreen);
+        final Color color;
+        if (isQualifying) {
+          color = AppColors.accentGreen;
+        } else if (isInCurrentRun) {
+          color = AppColors.error;
+        } else {
+          color = AppColors.glassFill;
+        }
 
         return DecoratedBox(
           decoration: BoxDecoration(
             color: color,
             borderRadius: BorderRadius.circular(10),
             boxShadow: isQualifying
-                ? [BoxShadow(color: color.withValues(alpha: 0.6), blurRadius: 8)]
+                ? [BoxShadow(color: color.withValues(alpha: 0.6), blurRadius: 12)]
                 : null,
           ),
         );

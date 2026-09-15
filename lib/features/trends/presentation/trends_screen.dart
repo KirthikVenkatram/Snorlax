@@ -170,16 +170,16 @@ class _TrendsScreenState extends State<TrendsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Weight', style: textTheme.headlineMedium),
-                          const SizedBox(height: 4),
+                          Text('WEIGHT', style: textTheme.bodySmall),
+                          const SizedBox(height: 6),
                           Text(
                             _weightDeltaKg == null
                                 ? 'Not enough data yet'
                                 : '${_weightDeltaKg! > 0 ? '+' : ''}${_weightDeltaKg!.toStringAsFixed(1)} $_weightUnit',
                             key: const Key('weightDelta'),
-                            style: textTheme.bodyLarge?.copyWith(
+                            style: textTheme.headlineMedium?.copyWith(
+                              fontSize: 24,
                               color: _weightDeltaColor(_weightDeltaKg),
-                              fontWeight: FontWeight.w700,
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -193,7 +193,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Discipline', style: textTheme.headlineMedium),
+                          Text('DISCIPLINE', style: textTheme.bodySmall),
                           const SizedBox(height: 12),
                           SizedBox(height: 140, child: WeeklyBarChart(days: _disciplineBars)),
                         ],
@@ -204,6 +204,8 @@ class _TrendsScreenState extends State<TrendsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          Text('STATS', style: textTheme.bodySmall),
+                          const SizedBox(height: 4),
                           _StatRow(
                             label: 'Calories / day',
                             stat: _caloriesStat,
