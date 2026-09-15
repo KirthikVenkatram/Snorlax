@@ -116,18 +116,13 @@ class _ScanFoodScreenState extends State<ScanFoodScreen> {
             child: Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _ScanIconButton(
-                        icon: Icons.close,
-                        label: 'Close',
-                        onTap: () => Navigator.of(context).pop(),
-                      ),
-                      _ScanIconButton(
-                        icon: _torchOn ? Icons.flash_on : Icons.flash_off,
-                        label: 'Torch',
+                      _ClosePill(onTap: () => Navigator.of(context).pop()),
+                      _TorchButton(
+                        torchOn: _torchOn,
                         onTap: () async {
                           await _controller.toggleTorch();
                           if (mounted) setState(() => _torchOn = !_torchOn);
@@ -137,16 +132,10 @@ class _ScanFoodScreenState extends State<ScanFoodScreen> {
                   ),
                 ),
                 const Spacer(),
-                Container(
-                  width: 210,
-                  height: 210,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.accentGreen, width: 3),
-                    boxShadow: [
-                      BoxShadow(color: AppColors.accentGreen.withValues(alpha: 0.5), blurRadius: 20),
-                    ],
-                  ),
+                SizedBox(
+                  width: 260,
+                  height: 260,
+                  child: CustomPaint(painter: _ViewfinderPainter()),
                 ),
                 const SizedBox(height: 16),
                 Text(
@@ -202,11 +191,10 @@ class _ScanFoodScreenState extends State<ScanFoodScreen> {
   }
 }
 
-class _ScanIconButton extends StatelessWidget {
-  const _ScanIconButton({required this.icon, required this.label, required this.onTap});
+/// Top-left "Close" pill — text only, per Screen 8's glass-pill header.
+class _ClosePill extends StatelessWidget {
+  const _ClosePill({required this.onTap});
 
-  final IconData icon;
-  final String label;
   final VoidCallback onTap;
 
   @override
@@ -217,20 +205,127 @@ class _ScanIconButton extends StatelessWidget {
       child: InkWell(
         customBorder: const StadiumBorder(),
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, color: Colors.white, size: 18),
-              const SizedBox(width: 6),
-              Text(label, style: const TextStyle(color: Colors.white, fontSize: 13)),
-            ],
+        child: const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          child: Text('Close', style: TextStyle(color: Colors.white, fontSize: 14)),
+        ),
+      ),
+    );
+  }
+}
+
+/// Top-right round icon-only torch toggle, per Screen 8's header.
+class _TorchButton extends StatelessWidget {
+  const _TorchButton({required this.torchOn, required this.onTap});
+
+  final bool torchOn;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white.withValues(alpha: 0.12),
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: SizedBox(
+          width: 40,
+          height: 40,
+          child: Icon(
+            torchOn ? Icons.flash_on : Icons.flash_off,
+            color: Colors.white,
+            size: 18,
           ),
         ),
       ),
     );
   }
+}
+
+/// Corner-bracket barcode viewfinder: a faint dashed rounded-square outline
+/// with four glowing neon corner brackets, per Screen 8 of the handoff —
+/// deliberately not a plain solid-border box.
+class _ViewfinderPainter extends CustomPainter {
+  static const _radius = 24.0;
+  static const _bracketLength = 28.0;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(_radius));
+
+    final dashedPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.25)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    _drawDashedRRect(canvas, rrect, dashedPaint);
+
+    final bracketPaint = Paint()
+      ..color = AppColors.accentGreen
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round;
+    final glowPaint = Paint()
+      ..color = AppColors.accentGreen.withValues(alpha: 0.6)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+
+    for (final paint in [glowPaint, bracketPaint]) {
+      // Top-left
+      canvas.drawLine(const Offset(0, _bracketLength), Offset(0, _radius), paint);
+      canvas.drawArc(Rect.fromCircle(center: const Offset(_radius, _radius), radius: _radius),
+          3.14159, 1.5708, false, paint);
+      canvas.drawLine(const Offset(_radius, 0), const Offset(_bracketLength, 0), paint);
+
+      // Top-right
+      canvas.drawLine(Offset(size.width - _bracketLength, 0), Offset(size.width - _radius, 0), paint);
+      canvas.drawArc(
+          Rect.fromCircle(center: Offset(size.width - _radius, _radius), radius: _radius),
+          -1.5708, 1.5708, false, paint);
+      canvas.drawLine(
+          Offset(size.width, _radius), Offset(size.width, _bracketLength), paint);
+
+      // Bottom-left
+      canvas.drawLine(
+          Offset(0, size.height - _bracketLength), Offset(0, size.height - _radius), paint);
+      canvas.drawArc(
+          Rect.fromCircle(center: Offset(_radius, size.height - _radius), radius: _radius),
+          1.5708, 1.5708, false, paint);
+      canvas.drawLine(Offset(_radius, size.height), Offset(_bracketLength, size.height), paint);
+
+      // Bottom-right
+      canvas.drawLine(Offset(size.width, size.height - _bracketLength),
+          Offset(size.width, size.height - _radius), paint);
+      canvas.drawArc(
+          Rect.fromCircle(
+              center: Offset(size.width - _radius, size.height - _radius), radius: _radius),
+          0,
+          1.5708,
+          false,
+          paint);
+      canvas.drawLine(Offset(size.width - _radius, size.height),
+          Offset(size.width - _bracketLength, size.height), paint);
+    }
+  }
+
+  void _drawDashedRRect(Canvas canvas, RRect rrect, Paint paint) {
+    final path = Path()..addRRect(rrect);
+    for (final metric in path.computeMetrics()) {
+      var distance = 0.0;
+      const dashWidth = 6.0, dashGap = 5.0;
+      while (distance < metric.length) {
+        final next = (distance + dashWidth).clamp(0.0, metric.length);
+        canvas.drawPath(metric.extractPath(distance, next), paint);
+        distance += dashWidth + dashGap;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _MatchSheet extends StatefulWidget {

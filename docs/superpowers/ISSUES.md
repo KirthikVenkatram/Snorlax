@@ -791,3 +791,73 @@ Group E (Sleep, Trends, Streaks) visual-fidelity pass.
   screenshot's name header needs a real name and `UserProfile` has none
   (see the Name-field note above). Falls back to "Signed in" when null,
   same as `SettingsScreen`'s email fallback pattern.
+
+### Group D — Log food, Scan food, Recipe builder
+
+- **Log food's "already added in a prior pass" search field/Scan pill
+  didn't actually exist.** The plan's task description says the Search
+  tab's search field + Scan pill "already added in a prior pass — verify
+  placement matches" — in the code found, there was no top-level search
+  field at all; `FoodPicker` owned its own internal search field
+  (`Key('foodSearchField')`) with no Scan pill, and the Scan pill sat in a
+  separate Row next to a plain `MealType` `DropdownButton`. Since
+  `FoodPicker`'s search field is exercised directly by
+  `food_picker_test.dart` and must stay self-contained (one field, no
+  duplicate `Key('foodSearchField')`), the fix was to add an optional
+  `onScanTap` param to `FoodPicker` so it renders the Scan pill beside its
+  own field, plus an `expandResults: false` mode so the results shrink-wrap
+  to content instead of filling all remaining space — letting the TODAY
+  summary card and Frequent Foods sit directly below the search field in
+  the same scroll view when idle, matching `07-log-food.png`'s order
+  exactly, with search results dropping in above them only while a query
+  is active.
+- **Meal-type selector kept, restyled as a 4-way glass pill row
+  (`_MealTypeRow`), not dropped.** `07-log-food.png`'s crop doesn't show a
+  meal picker at all (it likely lives one Figma step later, off-crop), but
+  logging a food with no meal is meaningless in this app's data model — so
+  it was kept and restyled to the glass system instead of removed, placed
+  under Frequent Foods on the Search tab and reused as-is on the
+  Describe/Photo tabs (replacing their old plain `DropdownButton`).
+- **TODAY card's coaching line only renders once `NutritionGoals` exist**
+  (`NutritionRepository.getGoals`); with no saved goals the card still
+  shows today's real logged items and totals, just without the closing
+  "N kcal / Ng protein still to go" line — never a fabricated target.
+- **Removing an item from the TODAY card does not call `widget.onSaved`.**
+  `onSaved` is the "a food was logged, pop and refresh the caller" signal
+  (see `NutritionHomeScreen._openLogFood`); firing it on a same-screen
+  removal would incorrectly pop `LogFoodScreen`. Removal instead only
+  refreshes this screen's own local `_entriesFuture`/`_catalogFuture`, via
+  a new `_refreshToday()` also now called after every successful log path
+  (catalog tap, search-and-save, describe/photo save-all, including the
+  partial-failure branch that deliberately doesn't call `onSaved`) so the
+  TODAY card reflects reality whenever the screen stays open.
+- **Recipe builder's ingredient checklist changed from a `Wrap` of chips to
+  a `Column` of full-width rows** (`_IngredientRow`, replacing
+  `_IngredientChip`), matching `09-recipe-builder.png`'s actual per-row
+  card layout (name + "100 g · kcal" detail line + trailing circular +/−)
+  rather than the old inline-chip layout, which didn't match the
+  screenshot's structure at all. Each row shows "Looking up…"/"100g
+  serving" placeholders (never a fabricated kcal number) until its
+  estimate resolves. Header also changed from an `AppBar` ("Build a
+  recipe") to the screenshot's "Recipe" title + "Cancel" pill, and the
+  ingredients label changed from "Ingredients · N added" to the
+  screenshot's "INGREDIENTS · N ADDED" mono kicker — updated
+  `recipe_builder_screen_test.dart`'s matching text assertion to match
+  (test still passes, same behavioural assertions otherwise).
+- **Scan food's viewfinder rebuilt as a `CustomPainter`** (dashed
+  rounded-rect outline + four glowing neon corner brackets,
+  `_ViewfinderPainter`) instead of a solid 3px full-border box — the
+  screenshot (`08-scan-food.png`) clearly shows a corner-bracket frame,
+  and its own notes column calls out "the ring a `CustomPainter`"
+  explicitly. Header buttons also changed to match: top-left is a
+  text-only "Close" pill (was icon+label), top-right is a round icon-only
+  torch toggle (was icon+"Torch" label).
+- **No smoke test added for `scan_food_screen.dart`.** It has no existing
+  test file and none of `mobile_scanner`'s `MobileScanner`/
+  `MobileScannerController` widgets are exercised anywhere else in this
+  repo's test suite (camera platform channels aren't available in a plain
+  widget test) — adding one here risked being the first attempt at that
+  and destabilizing an otherwise-working fidelity pass. `flutter analyze`
+  is clean on the file and it was read/reviewed manually against the
+  screenshot; a future pass could add a fake `MobileScannerController`
+  harness if scan-flow regressions become a real risk.

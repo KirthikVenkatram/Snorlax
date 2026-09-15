@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/ambient_background.dart';
 import '../../../core/widgets/glass_card.dart';
 import '../../../core/widgets/primary_button.dart';
@@ -166,83 +167,105 @@ class _RecipeBuilderScreenState extends State<RecipeBuilderScreen> {
     final totals = _totals;
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(title: const Text('Build a recipe'), backgroundColor: Colors.transparent),
       body: AmbientBackground(
         child: SafeArea(
           child: ListView(
             padding: const EdgeInsets.all(18),
             children: [
+              Row(
+                children: [
+                  Text('Recipe', style: Theme.of(context).textTheme.headlineMedium),
+                  const Spacer(),
+                  Material(
+                    color: AppColors.glassFill,
+                    shape: const StadiumBorder(side: BorderSide(color: AppColors.glassStroke)),
+                    child: InkWell(
+                      customBorder: const StadiumBorder(),
+                      onTap: () => Navigator.of(context).pop(),
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                        child: Text('Cancel', style: TextStyle(color: AppColors.textPrimary)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
               GlassCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    const Text(
+                      'Name',
+                      style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                    ),
+                    const SizedBox(height: 6),
                     TextField(
                       key: const Key('recipeNameField'),
                       controller: _nameController,
-                      style: const TextStyle(color: AppColors.textPrimary),
-                      decoration: const InputDecoration(
-                        labelText: 'Recipe name',
-                        labelStyle: TextStyle(color: AppColors.textSecondary),
-                      ),
+                      style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+                      decoration: const InputDecoration(border: InputBorder.none, isDense: true),
                       onChanged: (_) => setState(() {}),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 18),
                     Row(
                       children: [
-                        const Text(
-                          'Servings',
-                          style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w700),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Servings this makes',
+                                style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w700),
+                              ),
+                              Text(
+                                'Macros below are per serving',
+                                style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                              ),
+                            ],
+                          ),
                         ),
-                        const Spacer(),
-                        IconButton(
+                        _ServingStepperButton(
                           key: const Key('servingsDecrement'),
-                          icon: const Icon(Icons.remove_circle_outline, color: AppColors.textSecondary),
-                          onPressed: _servings > 1 ? () => setState(() => _servings--) : null,
+                          icon: Icons.remove,
+                          onTap: _servings > 1 ? () => setState(() => _servings--) : null,
                         ),
-                        Text(
-                          '$_servings',
-                          style: const TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.w800),
+                        SizedBox(
+                          width: 28,
+                          child: Text(
+                            '$_servings',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.w800),
+                          ),
                         ),
-                        IconButton(
+                        _ServingStepperButton(
                           key: const Key('servingsIncrement'),
-                          icon: const Icon(Icons.add_circle_outline, color: AppColors.accentGreen),
-                          onPressed: () => setState(() => _servings++),
+                          icon: Icons.add,
+                          onTap: () => setState(() => _servings++),
                         ),
                       ],
-                    ),
-                    const Text(
-                      'Macros below are per serving',
-                      style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 14),
               Text(
-                'Ingredients · ${_selected.length} added',
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 16,
-                ),
+                'INGREDIENTS · ${_selected.length} ADDED',
+                style: AppTypography.mono(color: AppColors.textSecondary, fontSize: 12),
               ),
               const SizedBox(height: 8),
-              GlassCard(
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final ingredient in _ingredientChecklist)
-                      _IngredientChip(
-                        label: ingredient,
-                        selected: _selected.contains(ingredient),
-                        loading: _loading.contains(ingredient),
-                        onTap: () => _toggle(ingredient),
-                      ),
-                  ],
+              for (final ingredient in _ingredientChecklist)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _IngredientRow(
+                    label: ingredient,
+                    selected: _selected.contains(ingredient),
+                    loading: _loading.contains(ingredient),
+                    caloriesPer100g: _estimates[ingredient]?.caloriesPer100g,
+                    onTap: () => _toggle(ingredient),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 6),
               GlassCard(
                 glowColor: AppColors.accentGreen,
                 child: Column(
@@ -289,52 +312,113 @@ class _RecipeBuilderScreenState extends State<RecipeBuilderScreen> {
   }
 }
 
-class _IngredientChip extends StatelessWidget {
-  const _IngredientChip({
+/// A full-width ingredient checklist row per Screen 9 of the handoff: name +
+/// "{grams}g · {kcal} kcal" detail line on the left, a circular +/− toggle
+/// on the right — selected rows tint green. Replaces an earlier Wrap-of-
+/// chips layout that didn't match the screenshot's list-of-rows structure.
+class _IngredientRow extends StatelessWidget {
+  const _IngredientRow({
     required this.label,
     required this.selected,
     required this.loading,
+    required this.caloriesPer100g,
     required this.onTap,
   });
 
   final String label;
   final bool selected;
   final bool loading;
+
+  /// Null until the estimate resolves (or if this ingredient was never
+  /// selected) — the detail line shows a placeholder rather than a
+  /// fabricated number while it's unknown.
+  final double? caloriesPer100g;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? AppColors.accentGreen.withValues(alpha: 0.18) : AppColors.glassFill,
-      shape: StadiumBorder(
-        side: BorderSide(
-          color: selected ? AppColors.accentGreen.withValues(alpha: 0.45) : AppColors.glassStroke,
-        ),
-      ),
+      color: selected ? AppColors.accentGreen.withValues(alpha: 0.14) : AppColors.glassFill,
+      borderRadius: BorderRadius.circular(18),
       child: InkWell(
         onTap: onTap,
-        customBorder: const StadiumBorder(),
+        borderRadius: BorderRadius.circular(18),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              if (loading) ...[
-                const SizedBox(
-                  width: 12,
-                  height: 12,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-                const SizedBox(width: 6),
-              ],
-              Text(
-                label,
-                style: TextStyle(
-                  color: selected ? AppColors.accentGreen : AppColors.textPrimary,
-                  fontWeight: FontWeight.w600,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      caloriesPer100g == null
+                          ? (selected ? 'Looking up…' : '100g serving')
+                          : '100 g · ${caloriesPer100g!.toStringAsFixed(0)} kcal',
+                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                    ),
+                  ],
                 ),
               ),
+              if (loading)
+                const SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: selected ? AppColors.accentGreen : AppColors.glassFillStrong,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    selected ? Icons.remove : Icons.add,
+                    size: 18,
+                    color: selected ? Colors.black : AppColors.textPrimary,
+                  ),
+                ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The round +/− buttons on the servings stepper, per Screen 9.
+class _ServingStepperButton extends StatelessWidget {
+  const _ServingStepperButton({super.key, required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onTap != null;
+    return Opacity(
+      opacity: enabled ? 1 : 0.4,
+      child: Material(
+        color: AppColors.glassFillStrong,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: SizedBox(
+            width: 32,
+            height: 32,
+            child: Icon(icon, size: 18, color: AppColors.textPrimary),
           ),
         ),
       ),

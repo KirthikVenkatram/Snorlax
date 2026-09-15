@@ -71,7 +71,7 @@ void main() {
     await tester.tap(find.text('Onion'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Ingredients · 2 added'), findsOneWidget);
+    expect(find.text('INGREDIENTS · 2 ADDED'), findsOneWidget);
 
     await tester.tap(find.text('Save and log one serving'));
     await tester.pumpAndSettle();

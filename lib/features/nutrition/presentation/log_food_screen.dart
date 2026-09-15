@@ -2,8 +2,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/ambient_background.dart';
 import '../../../core/widgets/glass_card.dart';
+import '../../../core/widgets/pressable.dart';
 import '../../../core/widgets/primary_button.dart';
+import '../../../core/widgets/section_label.dart';
 import '../data/food_search_service.dart';
 import '../data/nutrition_repository.dart';
 import '../data/recipe_repository.dart';
@@ -51,11 +55,35 @@ class _LogFoodScreenState extends State<LogFoodScreen> with SingleTickerProvider
   bool _analyzingImage = false;
   String? _error;
   late Future<List<CatalogItem>> _catalogFuture;
+  late Future<List<FoodEntry>> _entriesFuture;
+  late Future<NutritionGoals?> _goalsFuture;
 
   @override
   void initState() {
     super.initState();
     _catalogFuture = _loadCatalog();
+    _entriesFuture = widget.nutritionRepository.listFoodLog(widget.uid);
+    _goalsFuture = widget.nutritionRepository.getGoals(widget.uid);
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  /// Re-fetches just this screen's own "TODAY" summary (entries + goals)
+  /// after a log or a removal — separate from [widget.onSaved], which pops
+  /// this screen on a real "log a food" action and must not fire on a mere
+  /// in-place removal.
+  void _refreshToday() {
+    if (!mounted) return;
+    setState(() {
+      _entriesFuture = widget.nutritionRepository.listFoodLog(widget.uid);
+      _catalogFuture = _loadCatalog();
+    });
+  }
+
+  Future<void> _removeEntry(FoodEntry entry) async {
+    await widget.nutritionRepository.deleteFoodEntry(widget.uid, entry.id);
+    _refreshToday();
   }
 
   @override
@@ -85,6 +113,7 @@ class _LogFoodScreenState extends State<LogFoodScreen> with SingleTickerProvider
       fatG: item.fatG,
       source: item.source,
     );
+    _refreshToday();
     widget.onSaved();
   }
 
@@ -166,6 +195,7 @@ class _LogFoodScreenState extends State<LogFoodScreen> with SingleTickerProvider
         .then((_) {}, onError: (Object error) => debugPrint('Failed to log food: $error'));
     if (!mounted) return;
     setState(() => _saving = false);
+    _refreshToday();
     widget.onSaved();
   }
 
@@ -265,127 +295,138 @@ class _LogFoodScreenState extends State<LogFoodScreen> with SingleTickerProvider
         _parsedItems = failedItems;
         _error = message;
       });
+      _refreshToday();
       return;
     }
 
+    _refreshToday();
     widget.onSaved();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Log food'),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [Tab(text: 'Search'), Tab(text: 'Describe'), Tab(text: 'Photo')],
-        ),
-      ),
-      body: SafeArea(
-        child: TabBarView(
-          controller: _tabController,
-          children: [
-            _buildSearchTab(),
-            _buildNaturalLanguageTab(),
-            _buildPhotoTab(),
-          ],
+      backgroundColor: Colors.transparent,
+      body: AmbientBackground(
+        child: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+                child: Text('Log food', style: Theme.of(context).textTheme.headlineMedium),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _GlassTabBar(controller: _tabController),
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildSearchTab(),
+                    _buildNaturalLanguageTab(),
+                    _buildPhotoTab(),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildSearchTab() {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: DropdownButton<MealType>(
-                  value: _mealType,
-                  isExpanded: true,
-                  items: MealType.values
-                      .map((m) => DropdownMenuItem(value: m, child: Text(m.name)))
-                      .toList(),
-                  onChanged: (m) => setState(() => _mealType = m ?? _mealType),
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+      children: [
+        // A single FoodPicker instance owns both the search field and its
+        // results list (its own internal search state can't be split
+        // without duplicating it) — with expandResults: false, the results
+        // shrink-wrap to their content so they drop in directly under the
+        // field, and the TODAY summary / Frequent Foods below sit in the
+        // idle (empty-query) state exactly as the screenshot shows.
+        FoodPicker(
+          uid: widget.uid,
+          searchService: widget.searchService,
+          onScanTap: _openScan,
+          onSelected: (result) => setState(() => _selectedFood = result),
+          expandResults: false,
+        ),
+        const SizedBox(height: 16),
+        _TodaySummaryCard(
+          entriesFuture: _entriesFuture,
+          goalsFuture: _goalsFuture,
+          date: widget.date,
+          isSameDay: _isSameDay,
+          onRemove: _removeEntry,
+        ),
+        const SizedBox(height: 16),
+        _FrequentFoodsRow(future: _catalogFuture, onTap: _logCatalogItem),
+        const SizedBox(height: 16),
+        _MealTypeRow(value: _mealType, onChanged: (m) => setState(() => _mealType = m)),
+        if (_selectedFood != null) ...[
+          const SizedBox(height: 16),
+          GlassCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _selectedFood!.name,
+                  style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w700),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Material(
-                color: AppColors.accentGreen,
-                shape: const StadiumBorder(),
-                child: InkWell(
-                  customBorder: const StadiumBorder(),
-                  onTap: _openScan,
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.qr_code_scanner, size: 18, color: Colors.black),
-                        SizedBox(width: 6),
-                        Text('Scan', style: TextStyle(color: Colors.black, fontWeight: FontWeight.w700)),
-                      ],
-                    ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const Key('quantityGramsField'),
+                  controller: _quantityController,
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(color: AppColors.textPrimary),
+                  decoration: const InputDecoration(
+                    labelText: 'Quantity (grams)',
+                    labelStyle: TextStyle(color: AppColors.textSecondary),
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          if (_selectedFood != null) ...[
-            GlassCard(child: Text(_selectedFood!.name)),
-            const SizedBox(height: 16),
-          ],
-          _FrequentFoodsRow(future: _catalogFuture, onTap: _logCatalogItem),
-          const SizedBox(height: 16),
-          Expanded(
-            child: FoodPicker(
-              uid: widget.uid,
-              searchService: widget.searchService,
-              onSelected: (result) => setState(() => _selectedFood = result),
+              ],
             ),
           ),
-          const SizedBox(height: 16),
-          TextField(
-            key: const Key('quantityGramsField'),
-            controller: _quantityController,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'Quantity (grams)'),
-          ),
-          const SizedBox(height: 24),
-          _saving
-              ? const Center(child: CircularProgressIndicator())
-              : PrimaryButton(
-                  label: 'Save',
-                  onPressed: _selectedFood == null ? null : _saveSelectedFood,
-                ),
         ],
-      ),
+        const SizedBox(height: 24),
+        _saving
+            ? const Center(child: CircularProgressIndicator())
+            : PrimaryButton(
+                label: 'Save',
+                onPressed: _selectedFood == null ? null : _saveSelectedFood,
+              ),
+      ],
     );
   }
 
   Widget _buildNaturalLanguageTab() {
     return ListView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       children: [
-        DropdownButton<MealType>(
-          value: _mealType,
-          items: MealType.values
-              .map((m) => DropdownMenuItem(value: m, child: Text(m.name)))
-              .toList(),
-          onChanged: (m) => setState(() => _mealType = m ?? _mealType),
-        ),
+        _MealTypeRow(value: _mealType, onChanged: (m) => setState(() => _mealType = m)),
         const SizedBox(height: 16),
-        TextField(
-          controller: _naturalLanguageController,
-          decoration: const InputDecoration(labelText: 'Describe what you ate'),
-          maxLines: 2,
+        GlassCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: _naturalLanguageController,
+                style: const TextStyle(color: AppColors.textPrimary),
+                decoration: const InputDecoration(
+                  labelText: 'Describe what you ate',
+                  labelStyle: TextStyle(color: AppColors.textSecondary),
+                ),
+                maxLines: 2,
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton(onPressed: _parseNaturalLanguage, child: const Text('Parse')),
+            ],
+          ),
         ),
-        const SizedBox(height: 16),
-        OutlinedButton(onPressed: _parseNaturalLanguage, child: const Text('Parse')),
         _buildParsedItemsReview(),
       ],
     );
@@ -393,15 +434,9 @@ class _LogFoodScreenState extends State<LogFoodScreen> with SingleTickerProvider
 
   Widget _buildPhotoTab() {
     return ListView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       children: [
-        DropdownButton<MealType>(
-          value: _mealType,
-          items: MealType.values
-              .map((m) => DropdownMenuItem(value: m, child: Text(m.name)))
-              .toList(),
-          onChanged: (m) => setState(() => _mealType = m ?? _mealType),
-        ),
+        _MealTypeRow(value: _mealType, onChanged: (m) => setState(() => _mealType = m)),
         const SizedBox(height: 16),
         if (_pickedImage != null) ...[
           ClipRRect(
@@ -490,51 +525,316 @@ class _FrequentFoodsRow extends StatelessWidget {
       builder: (context, snapshot) {
         final items = snapshot.data;
         if (items == null || items.isEmpty) return const SizedBox.shrink();
-        return SizedBox(
-          height: 96,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: items.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 10),
-            itemBuilder: (context, index) {
-              final item = items[index];
-              return InkWell(
-                borderRadius: BorderRadius.circular(18),
-                onTap: () => onTap(item),
-                child: SizedBox(
-                  width: 130,
-                  child: GlassCard(
-                    padding: const EdgeInsets.all(10),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (item.tag != null)
-                          Text(
-                            item.tag!.toUpperCase(),
-                            style: const TextStyle(
-                              color: AppColors.accentGreen,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.8,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SectionLabel('Frequent foods'),
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 96,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: items.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 10),
+                itemBuilder: (context, index) {
+                  final item = items[index];
+                  return Pressable(
+                    onTap: () => onTap(item),
+                    child: SizedBox(
+                      width: 130,
+                      child: GlassCard(
+                        padding: const EdgeInsets.all(10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (item.tag != null)
+                              Text(
+                                item.tag!.toUpperCase(),
+                                style: const TextStyle(
+                                  color: AppColors.accentGreen,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                            Text(
+                              item.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontSize: 13),
                             ),
-                          ),
-                        Text(
-                          item.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontSize: 13),
+                            const Spacer(),
+                            Text(
+                              '${item.calories.toStringAsFixed(0)} kcal',
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 11),
+                            ),
+                          ],
                         ),
-                        const Spacer(),
-                        Text(
-                          '${item.calories.toStringAsFixed(0)} kcal',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 11),
-                        ),
-                      ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// A compact glass segmented pill row for choosing the meal a food gets
+/// logged under. The design handoff's Log food screenshot doesn't show a
+/// meal-type control (it likely lives one step later in the real Figma
+/// flow, off this crop) — logging is meaningless without one, so it's kept
+/// here, restyled to the glass system rather than dropped. See
+/// docs/superpowers/ISSUES.md.
+class _MealTypeRow extends StatelessWidget {
+  const _MealTypeRow({required this.value, required this.onChanged});
+
+  final MealType value;
+  final ValueChanged<MealType> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        for (final meal in MealType.values) ...[
+          Expanded(
+            child: Pressable(
+              onTap: () => onChanged(meal),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: value == meal
+                      ? AppColors.accentGreen.withValues(alpha: 0.18)
+                      : AppColors.glassFill,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: value == meal
+                        ? AppColors.accentGreen.withValues(alpha: 0.45)
+                        : AppColors.glassStroke,
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: Text(
+                    '${meal.name[0].toUpperCase()}${meal.name.substring(1)}',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: value == meal ? AppColors.accentGreen : AppColors.textSecondary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
                     ),
                   ),
                 ),
-              );
-            },
+              ),
+            ),
+          ),
+          if (meal != MealType.values.last) const SizedBox(width: 8),
+        ],
+      ],
+    );
+  }
+}
+
+/// The Search tab's "TODAY · {kcal} kcal" glass card — the day's already
+/// logged items (real, from [entriesFuture]/[isSameDay] filtering to
+/// [date], never fabricated) with a per-item remove action, closing with a
+/// coaching line computed from the same totals-vs-goal math the nutrition
+/// home screen already uses.
+class _TodaySummaryCard extends StatelessWidget {
+  const _TodaySummaryCard({
+    required this.entriesFuture,
+    required this.goalsFuture,
+    required this.date,
+    required this.isSameDay,
+    required this.onRemove,
+  });
+
+  final Future<List<FoodEntry>> entriesFuture;
+  final Future<NutritionGoals?> goalsFuture;
+  final DateTime date;
+  final bool Function(DateTime, DateTime) isSameDay;
+  final ValueChanged<FoodEntry> onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<FoodEntry>>(
+      future: entriesFuture,
+      builder: (context, entriesSnapshot) {
+        final allEntries = entriesSnapshot.data;
+        if (allEntries == null) return const SizedBox.shrink();
+        final entries = allEntries.where((e) => isSameDay(e.date, date)).toList();
+        final totalCalories = entries.fold<double>(0, (sum, e) => sum + e.calories);
+        final totalProtein = entries.fold<double>(0, (sum, e) => sum + e.proteinG);
+
+        return GlassCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'TODAY · ${totalCalories.toStringAsFixed(0)} kcal',
+                      maxLines: 1,
+                      softWrap: false,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.mono(color: AppColors.accentGreen, fontSize: 13),
+                    ),
+                  ),
+                  Text(
+                    '${entries.length} item${entries.length == 1 ? '' : 's'}',
+                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                  ),
+                ],
+              ),
+              if (entries.isEmpty) ...[
+                const SizedBox(height: 12),
+                Text(
+                  'Nothing logged yet today.',
+                  style: const TextStyle(color: AppColors.textSecondary),
+                ),
+              ] else ...[
+                for (final entry in entries) ...[
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              entry.foodName,
+                              style: const TextStyle(
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${_mealLabel(entry.mealType)} · '
+                              '${entry.proteinG.toStringAsFixed(0)}P · '
+                              '${entry.carbsG.toStringAsFixed(0)}C · '
+                              '${entry.fatG.toStringAsFixed(0)}F',
+                              style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        entry.calories.toStringAsFixed(0),
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Pressable(
+                        onTap: () => onRemove(entry),
+                        child: Container(
+                          width: 26,
+                          height: 26,
+                          decoration: const BoxDecoration(
+                            color: AppColors.glassFillStrong,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close, size: 14, color: AppColors.textSecondary),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+              FutureBuilder<NutritionGoals?>(
+                future: goalsFuture,
+                builder: (context, goalsSnapshot) {
+                  final goals = goalsSnapshot.data;
+                  if (goals == null) return const SizedBox.shrink();
+                  final kcalLeft = goals.dailyCalories - totalCalories;
+                  final proteinLeft = goals.proteinG - totalProtein;
+                  final over = kcalLeft <= 0;
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 14),
+                    child: Text(
+                      over
+                          ? "You're over target for today. Tomorrow is a fresh sheet."
+                          : '${kcalLeft.round()} kcal and ${proteinLeft.clamp(0, double.infinity).round()}g '
+                              'protein still to go today',
+                      style: TextStyle(
+                        color: over ? AppColors.error : AppColors.accentGreen,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  String _mealLabel(MealType meal) => '${meal.name[0].toUpperCase()}${meal.name.substring(1)}';
+}
+
+/// The floating glass pill tab bar shared by the Search/Describe/Photo tabs
+/// — stadium geometry, glass fill, selected tab lit green, per the shared
+/// conventions in the handoff plan.
+class _GlassTabBar extends StatelessWidget {
+  const _GlassTabBar({required this.controller});
+
+  final TabController controller;
+
+  static const _labels = ['Search', 'Describe', 'Photo'];
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            color: AppColors.glassFill,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: AppColors.glassStroke),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(4),
+            child: Row(
+              children: [
+                for (var i = 0; i < _labels.length; i++)
+                  Expanded(
+                    child: Pressable(
+                      onTap: () => controller.animateTo(i),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: controller.index == i
+                              ? AppColors.accentGreen.withValues(alpha: 0.18)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          child: Text(
+                            _labels[i],
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: controller.index == i
+                                  ? AppColors.accentGreen
+                                  : AppColors.textSecondary,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         );
       },

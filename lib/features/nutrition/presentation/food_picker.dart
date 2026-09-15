@@ -12,11 +12,25 @@ class FoodPicker extends StatefulWidget {
     required this.uid,
     required this.searchService,
     required this.onSelected,
+    this.onScanTap,
+    this.expandResults = true,
   });
 
   final String uid;
   final FoodSearchService searchService;
   final ValueChanged<FoodSearchResult> onSelected;
+
+  /// Renders a "Scan" pill beside the search field when provided — the Log
+  /// food Search tab's shell per the design handoff (Screen 7); omitted
+  /// wherever this picker is embedded without a scan flow.
+  final VoidCallback? onScanTap;
+
+  /// True (the default) fills remaining vertical space with the results
+  /// list, as when this picker is the only content on screen. Log food's
+  /// Search tab passes false so the results shrink-wrap to their content
+  /// instead, letting the TODAY summary and Frequent Foods sit in the same
+  /// scroll view right below the search field.
+  final bool expandResults;
 
   @override
   State<FoodPicker> createState() => _FoodPickerState();
@@ -83,65 +97,116 @@ class _FoodPickerState extends State<FoodPicker> {
     final query = _controller.text.trim();
 
     return Material(
-      color: AppColors.background,
+      color: Colors.transparent,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: TextField(
-              key: const Key('foodSearchField'),
-              controller: _controller,
-              style: const TextStyle(color: AppColors.textPrimary),
-              decoration: InputDecoration(
-                labelText: 'Search foods',
-                labelStyle: const TextStyle(color: AppColors.textSecondary),
-                prefixIcon: const Icon(Icons.search, color: AppColors.textSecondary),
-                filled: true,
-                fillColor: AppColors.surface,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
+          Row(
+            children: [
+              Expanded(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: AppColors.glassFill,
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: AppColors.glassStroke),
+                  ),
+                  child: TextField(
+                    key: const Key('foodSearchField'),
+                    controller: _controller,
+                    style: const TextStyle(color: AppColors.textPrimary),
+                    decoration: const InputDecoration(
+                      hintText: 'Search foods or recipes',
+                      hintStyle: TextStyle(color: AppColors.textSecondary),
+                      prefixIcon: Icon(Icons.search, color: AppColors.textSecondary),
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    onChanged: _search,
+                  ),
                 ),
               ),
-              onChanged: _search,
-            ),
-          ),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              children: [
-                for (final result in _results)
-                  ListTile(
-                    title: Text(
-                      result.name,
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    subtitle: Text(
-                      '${result.caloriesPer100g.toStringAsFixed(0)} kcal/100g',
-                      style: const TextStyle(color: AppColors.textSecondary),
-                    ),
-                    onTap: () => widget.onSelected(result),
-                  ),
-                if (query.isNotEmpty)
-                  ListTile(
-                    leading: const Icon(Icons.add_circle_outline, color: AppColors.accentGreen),
-                    title: Text(
-                      'Add "$query"',
-                      style: const TextStyle(
-                        color: AppColors.accentGreen,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    onTap: () => _addCustom(query),
-                  ),
+              if (widget.onScanTap != null) ...[
+                const SizedBox(width: 10),
+                _ScanPill(onTap: widget.onScanTap!),
               ],
-            ),
+            ],
           ),
+          _buildResultsList(query),
         ],
+      ),
+    );
+  }
+
+  Widget _buildResultsList(String query) {
+    final items = [
+      for (final result in _results)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(
+              result.name,
+              style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+            ),
+            subtitle: Text(
+              '${result.caloriesPer100g.toStringAsFixed(0)} kcal/100g',
+              style: const TextStyle(color: AppColors.textSecondary),
+            ),
+            onTap: () => widget.onSelected(result),
+          ),
+        ),
+      if (query.isNotEmpty)
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.add_circle_outline, color: AppColors.accentGreen),
+          title: Text(
+            'Add "$query"',
+            style: const TextStyle(color: AppColors.accentGreen, fontWeight: FontWeight.w600),
+          ),
+          onTap: () => _addCustom(query),
+        ),
+    ];
+
+    if (widget.expandResults) {
+      return Expanded(child: ListView(padding: const EdgeInsets.only(top: 12), children: items));
+    }
+    if (items.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: items),
+    );
+  }
+}
+
+/// The green stadium "Scan" pill beside the search field (Screen 7/8 of the
+/// handoff) — opens barcode scanning.
+class _ScanPill extends StatelessWidget {
+  const _ScanPill({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.accentGreen,
+      shape: const StadiumBorder(),
+      child: InkWell(
+        customBorder: const StadiumBorder(),
+        onTap: onTap,
+        child: const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.qr_code_scanner, size: 18, color: Colors.black),
+              SizedBox(width: 6),
+              Text(
+                'Scan',
+                style: TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
