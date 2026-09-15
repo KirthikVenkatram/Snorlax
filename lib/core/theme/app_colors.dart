@@ -18,6 +18,7 @@ class AppColors {
   static const accentGreen = Color(0xFF00E5A0); // "neon": live/data values, calorie ring
   static const accentAmber = Color(0xFFFFD23F);
   static const error = Color(0xFFFF3B30);
+  static const warningYellow = Color(0xFFF5C242); // readiness "yellow" band, per handoff spec
 
   static const textPrimary = Color(0xFFF5F5FA);
   static const textSecondary = Color(0x8FFFFFFF); // white @ ~56%, per spec's 50-60% range
